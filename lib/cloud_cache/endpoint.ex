@@ -1,4 +1,5 @@
-defmodule CloudCache.Adapter do
+defmodule CloudCache.Endpoint do
+  @type adapter :: module()
   @type bucket :: binary()
   @type object :: binary()
   @type upload_id :: binary()
@@ -8,7 +9,9 @@ defmodule CloudCache.Adapter do
   @type body :: term()
   @type options :: keyword()
 
-  @callback supervisor_children(opts :: options()) :: list()
+  @callback adapter :: adapter()
+
+  @callback options :: options()
 
   @callback describe_object(
               bucket :: bucket(),
@@ -104,7 +107,9 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
-  @optional_callbacks supervisor_children: 1
+  def adapter(impl), do: impl.adapter()
+
+  def options(impl), do: impl.options()
 
   # Non-Multipart Upload API
 
@@ -192,5 +197,151 @@ defmodule CloudCache.Adapter do
       src_range,
       opts
     )
+  end
+
+  defmacro __using__(opts) do
+    quote do
+      opts = unquote(opts)
+
+      alias CloudCache.Adapter
+
+      @behaviour CloudCache.Endpoint
+
+      @adapter Keyword.fetch!(opts, :adapter)
+      @options opts[:options] || []
+
+      @impl true
+      def adapter, do: @adapter
+
+      @impl true
+      def options, do: @options
+
+      @impl true
+      def pre_sign(bucket, object, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.pre_sign(@adapter, bucket, object, opts)
+      end
+
+      @impl true
+      def pre_sign_part(bucket, object, upload_id, part_number, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.pre_sign_part(@adapter, bucket, object, upload_id, part_number, opts)
+      end
+
+      @impl true
+      def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_object(@adapter, dest_bucket, dest_object, src_bucket, src_object, opts)
+      end
+
+      @impl true
+      def describe_object(bucket, object, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.describe_object(@adapter, bucket, object, opts)
+      end
+
+      @impl true
+      def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.upload_part(@adapter, bucket, object, upload_id, part_number, body, opts)
+      end
+
+      @impl true
+      def list_parts(bucket, object, upload_id, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.list_parts(@adapter, bucket, object, upload_id, opts)
+      end
+
+      @impl true
+      def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_object_multipart(
+          @adapter,
+          dest_bucket,
+          dest_object,
+          src_bucket,
+          src_object,
+          opts
+        )
+      end
+
+      @impl true
+      def copy_parts(
+            dest_bucket,
+            dest_object,
+            src_bucket,
+            src_object,
+            upload_id,
+            content_length,
+            opts \\ []
+          ) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_parts(
+          @adapter,
+          dest_bucket,
+          dest_object,
+          src_bucket,
+          src_object,
+          upload_id,
+          content_length,
+          opts
+        )
+      end
+
+      @impl true
+      def copy_part(
+            dest_bucket,
+            dest_object,
+            src_bucket,
+            src_object,
+            upload_id,
+            part_number,
+            range,
+            opts
+          ) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_part(
+          @adapter,
+          dest_bucket,
+          dest_object,
+          src_bucket,
+          src_object,
+          upload_id,
+          part_number,
+          range,
+          opts
+        )
+      end
+
+      @impl true
+      def complete_multipart_upload(bucket, object, upload_id, parts, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.complete_multipart_upload(@adapter, bucket, object, upload_id, parts, opts)
+      end
+
+      @impl true
+      def abort_multipart_upload(bucket, object, upload_id, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.abort_multipart_upload(@adapter, bucket, object, upload_id, opts)
+      end
+
+      @impl true
+      def create_multipart_upload(bucket, object, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.create_multipart_upload(@adapter, bucket, object, opts)
+      end
+    end
   end
 end

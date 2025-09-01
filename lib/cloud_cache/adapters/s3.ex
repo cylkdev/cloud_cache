@@ -17,17 +17,13 @@ defmodule CloudCache.Adapters.S3 do
   alias ExAws.{Operation, S3}
   alias CloudCache.Adapters.S3.{Multipart, XMLParser}
 
-  # ---
-
   @behaviour CloudCache.Adapter
 
-  # ---
-
   @app CloudCache.Config.app()
-  @logger_prefix "CloudCache.Adapters.S3"
 
-  @test "test"
+  @logger_prefix "CloudCache.Adapters.S3"
   @one_minute_seconds 60
+  @test "test"
 
   @default_http_client CloudCache.Adapters.S3.HTTP
   @region "us-west-1"
@@ -58,8 +54,6 @@ defmodule CloudCache.Adapters.S3 do
     s3: @default_s3_options
   ]
 
-  # ---
-
   # 64 MiB (67_108_864 bytes)
   @sixty_four_mib 64 * 1_024 * 1_024
 
@@ -69,9 +63,10 @@ defmodule CloudCache.Adapters.S3 do
   def config(opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    s3_opts =
+    service_opts =
       @default_s3_options
-      |> Keyword.merge(Application.get_env(@app, :s3) || [])
+      |> Keyword.merge(Application.get_all_env(:ex_aws))
+      |> Keyword.merge(Application.get_env(@app, :aws) || [])
       |> Keyword.merge(opts[:s3] || [])
 
     sandbox_endpoint_opts = sandbox_endpoint_opts(opts)
@@ -79,7 +74,7 @@ defmodule CloudCache.Adapters.S3 do
     overrides =
       opts
       |> Keyword.merge(sandbox_endpoint_opts)
-      |> Keyword.merge(s3_opts)
+      |> Keyword.merge(service_opts)
       |> Keyword.update(
         :retries,
         @default_s3_retries_options,
