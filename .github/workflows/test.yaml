@@ -56,7 +56,7 @@ jobs:
       # (Optional) create any LocalStack resources you need before tests
       - name: Create S3 bucket with awslocal
         run: |
-          awslocal s3api create-bucket --bucket test-bucket --region us-west-1
+          awslocal s3api create-bucket --bucket test-bucket --region us-west-1 --create-bucket-configuration LocationConstraint=us-west-1
 
       - name: Run tests
         run: MIX_ENV=test mix test
