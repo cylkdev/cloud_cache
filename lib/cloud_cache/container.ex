@@ -10,11 +10,16 @@ defmodule CloudCache.Container do
   def options(impl), do: impl.options()
 
   def describe_object(impl, key, opts \\ []) do
-    opts = impl |> options() |> Keyword.merge(opts)
-
     impl
     |> endpoint()
-    |> Endpoint.describe_object(source(impl), key, opts)
+    |> Endpoint.describe_object(source(impl), key, with_opts(opts, impl))
+  end
+
+  defp with_opts(opts, impl) do
+    impl
+    |> options()
+    |> Keyword.merge(opts)
+    |> Keyword.put_new(:region, region(impl))
   end
 
   defmacro __using__(opts \\ []) do
