@@ -5,5 +5,7 @@ defmodule CloudCache.Config do
 
   def app, do: @app
 
+  def container, do: Application.fetch_env!(@app, :container)
+
   def mix_env, do: Application.fetch_env!(@app, :mix_env)
 end

@@ -1,4 +1,4 @@
-defmodule CloudCache.Guardian do
+defmodule CloudCache.Supervisor do
   use Supervisor
 
   alias CloudCache.{Endpoint, Container}

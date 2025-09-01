@@ -1,25 +1,34 @@
 defmodule CloudCache.Container do
   alias CloudCache.Endpoint
 
-  def endpoint(impl), do: impl.endpoint()
+  @callback endpoint :: module()
+  @callback source :: binary()
+  @callback options :: keyword()
 
-  def region(impl), do: impl.region()
+  def app(container), do: container.app()
 
-  def source(impl), do: impl.source()
+  def endpoint(container), do: container.endpoint()
 
-  def options(impl), do: impl.options()
+  def source(container), do: container.source()
 
-  def describe_object(impl, key, opts \\ []) do
-    impl
+  def options(container), do: container.options()
+
+  def describe_object(container, key, opts \\ []) do
+    container
     |> endpoint()
-    |> Endpoint.describe_object(source(impl), key, with_opts(opts, impl))
+    |> Endpoint.describe_object(source(container), key, with_opts(opts, container))
   end
 
-  defp with_opts(opts, impl) do
-    impl
-    |> options()
+  defp with_opts(opts, container) do
+    CloudCache.Config.container()
+    |> Keyword.merge(
+      container
+      |> app()
+      |> Kernel.||(CloudCache.Config.app())
+      |> Application.get_env(container)
+    )
+    |> Keyword.merge(options(container))
     |> Keyword.merge(opts)
-    |> Keyword.put_new(:region, region(impl))
   end
 
   defmacro __using__(opts \\ []) do
@@ -28,20 +37,26 @@ defmodule CloudCache.Container do
 
       alias CloudCache.Container
 
+      @behaviour CloudCache.Container
+
+      @app opts[:app]
       @endpoint Keyword.fetch!(opts, :endpoint)
-      @region Keyword.fetch!(opts, :region)
       @source Keyword.fetch!(opts, :source)
       @options opts[:options] || []
 
+      @impl true
+      def app, do: @app
+
+      @impl true
       def endpoint, do: @endpoint
 
-      def region, do: @region
-
+      @impl true
       def source, do: @source
 
+      @impl true
       def options, do: @options
 
-      def describe_object(impl, key, opts \\ []) do
+      def describe_object(container, key, opts \\ []) do
         Container.describe_object(__MODULE__, key, opts)
       end
     end

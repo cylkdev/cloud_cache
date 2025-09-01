@@ -21,9 +21,8 @@ defmodule CloudCache do
       defmodule MyApp.S3Container do
         use CloudCache.Container,
           endpoint: MyApp.S3Endpoint,
-          region: "us-west-1",
           source: "test-bucket",
-          options: []
+          options: [region: "us-west-1"]
       end
 
   You can start the containers as well through CloudCache.start_link().
@@ -32,13 +31,7 @@ defmodule CloudCache do
 
       CloudCache.start_link(containers: [MyApp.S3Container])
   """
-  alias CloudCache.Guardian
-
   def start_link(opts \\ []) do
-    Guardian.start_link(opts)
-  end
-
-  def child_spec(opts \\ []) do
-    Guardian.child_spec(opts)
+    CloudCache.Supervisor.start_link(opts)
   end
 end
