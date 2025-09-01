@@ -1,9 +1,9 @@
-defmodule CloudCache.Support.S3Sandbox do
+defmodule CloudCache.Testing.S3Sandbox do
   @moduledoc false
 
-  @registry :up_s3_sandbox
+  @registry :cloud_cache_s3_sandbox
   @state "state"
-  @disabled "disabled_pids"
+  @disabled "disabled"
   @sleep 10
   @keys :unique
 
@@ -22,9 +22,8 @@ defmodule CloudCache.Support.S3Sandbox do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, opts) -> ..."
+        "fn (object) -> ...",
+        "fn (object, options) -> ..."
       ]
 
     func = find!(:describe_object, bucket, doc_examples)
@@ -34,19 +33,59 @@ defmodule CloudCache.Support.S3Sandbox do
         func.()
 
       1 ->
-        func.(bucket)
+        func.(object)
 
       2 ->
-        func.(bucket, object)
-
-      3 ->
-        func.(bucket, object, opts)
+        func.(object, opts)
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–4):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
+  @doc """
+  Returns the registered response function for `copy_object/5` in the
+  context of the calling process.
+  """
+  def copy_object_response(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (dest_object) -> ...",
+        "fn (dest_object, src_bucket) -> ...",
+        "fn (dest_object, src_bucket, src_object) -> ...",
+        "fn (dest_object, src_bucket, src_object, options) -> ..."
+      ]
+
+    func = find!(:copy_object, dest_bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(dest_object)
+
+      2 ->
+        func.(dest_object, src_bucket)
+
+      3 ->
+        func.(dest_object, src_bucket, src_object)
+
+      4 ->
+        func.(dest_object, src_bucket, src_object, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -61,9 +100,8 @@ defmodule CloudCache.Support.S3Sandbox do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, opts) -> ..."
+        "fn (object) -> ...",
+        "fn (object, options) -> ..."
       ]
 
     func = find!(:pre_sign, bucket, doc_examples)
@@ -73,19 +111,16 @@ defmodule CloudCache.Support.S3Sandbox do
         func.()
 
       1 ->
-        func.(bucket)
+        func.(object)
 
       2 ->
-        func.(bucket, object)
-
-      3 ->
-        func.(bucket, object, opts)
+        func.(object, opts)
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–4):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -100,10 +135,9 @@ defmodule CloudCache.Support.S3Sandbox do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, upload_id) -> ...",
-        "fn (bucket, object, upload_id, opts) -> ..."
+        "fn (object) -> ...",
+        "fn (object, upload_id) -> ...",
+        "fn (object, upload_id, options) -> ..."
       ]
 
     func = find!(:list_parts, bucket, doc_examples)
@@ -113,22 +147,19 @@ defmodule CloudCache.Support.S3Sandbox do
         func.()
 
       1 ->
-        func.(bucket)
+        func.(object)
 
       2 ->
-        func.(bucket, object)
+        func.(object, upload_id)
 
       3 ->
-        func.(bucket, object, upload_id)
-
-      4 ->
-        func.(bucket, object, upload_id, opts)
+        func.(object, upload_id, opts)
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–4):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -136,38 +167,53 @@ defmodule CloudCache.Support.S3Sandbox do
   end
 
   @doc """
-  Returns the registered response function for `create_multipart_upload/3` in the
-  context of the calling process.
+  Returns the registered response function for `upload_part/6`
+  in the context of the calling process.
   """
-  def create_multipart_upload_response(bucket, object, opts \\ []) do
+  def upload_part_response(
+        bucket,
+        object,
+        upload_id,
+        part_number,
+        body,
+        opts
+      ) do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, opts) -> ..."
+        "fn (object) -> ...",
+        "fn (object, upload_id) -> ...",
+        "fn (object, upload_id, part_number) -> ...",
+        "fn (object, upload_id, part_number, body) -> ...",
+        "fn (object, upload_id, part_number, body, options) -> ..."
       ]
 
-    func = find!(:create_multipart_upload, bucket, doc_examples)
+    func = find!(:upload_part, bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
         func.()
 
       1 ->
-        func.(bucket)
+        func.(object)
 
       2 ->
-        func.(bucket, object)
+        func.(object, upload_id)
 
       3 ->
-        func.(bucket, object, opts)
+        func.(object, upload_id, part_number)
+
+      4 ->
+        func.(object, upload_id, part_number, body)
+
+      5 ->
+        func.(object, upload_id, part_number, body, opts)
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–3):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -182,11 +228,10 @@ defmodule CloudCache.Support.S3Sandbox do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, upload_id) -> ...",
-        "fn (bucket, object, upload_id, part_number) -> ...",
-        "fn (bucket, object, upload_id, part_number, opts) -> ..."
+        "fn (object) -> ...",
+        "fn (object, upload_id) -> ...",
+        "fn (object, upload_id, part_number) -> ...",
+        "fn (object, upload_id, part_number, options) -> ..."
       ]
 
     func = find!(:pre_sign_part, bucket, doc_examples)
@@ -196,25 +241,22 @@ defmodule CloudCache.Support.S3Sandbox do
         func.()
 
       1 ->
-        func.(bucket)
+        func.(object)
 
       2 ->
-        func.(bucket, object)
+        func.(object, upload_id)
 
       3 ->
-        func.(bucket, object, upload_id)
+        func.(object, upload_id, part_number)
 
       4 ->
-        func.(bucket, object, upload_id, part_number)
-
-      5 ->
-        func.(bucket, object, upload_id, part_number, opts)
+        func.(object, upload_id, part_number, opts)
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–5):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -222,42 +264,41 @@ defmodule CloudCache.Support.S3Sandbox do
   end
 
   @doc """
-  Returns the registered response function for `abort_multipart_upload/4`
-  in the context of the calling process.
+  Returns the registered response function for `copy_object_multipart/5` in the
+  context of the calling process.
   """
-  def abort_multipart_upload_response(bucket, object, upload_id, opts \\ []) do
+  def copy_object_multipart_response(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, upload_id) -> ...",
-        "fn (bucket, object, upload_id, opts) -> ..."
+        "fn (dest_object) -> ...",
+        "fn (dest_object, src_bucket) -> ...",
+        "fn (dest_object, src_bucket, src_object) -> ..."
       ]
 
-    func = find!(:abort_multipart_upload, bucket, doc_examples)
+    func = find!(:copy_object_multipart, dest_bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
         func.()
 
       1 ->
-        func.(bucket)
+        func.(dest_object)
 
       2 ->
-        func.(bucket, object)
+        func.(dest_object, src_bucket)
 
       3 ->
-        func.(bucket, object, upload_id)
+        func.(dest_object, src_bucket, src_object)
 
       4 ->
-        func.(bucket, object, upload_id, opts)
+        func.(dest_object, src_bucket, src_object, opts)
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–4):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -265,46 +306,65 @@ defmodule CloudCache.Support.S3Sandbox do
   end
 
   @doc """
-  Returns the registered response function for `complete_multipart_upload/5`
+  Returns the registered response function for `copy_parts/7`
   in the context of the calling process.
   """
-  def complete_multipart_upload_response(bucket, object, upload_id, parts, opts \\ []) do
+  def copy_parts_response(
+        dest_bucket,
+        dest_object,
+        src_bucket,
+        src_object,
+        upload_id,
+        content_length,
+        opts
+      ) do
     doc_examples =
       [
         "fn -> ...",
-        "fn (bucket) -> ...",
-        "fn (bucket, object) -> ...",
-        "fn (bucket, object, upload_id) -> ...",
-        "fn (bucket, object, upload_id, parts) -> ...",
-        "fn (bucket, object, upload_id, parts, opts) -> ..."
+        "fn (dest_object) -> ...",
+        "fn (dest_object, src_bucket) -> ...",
+        "fn (dest_object, src_bucket, src_object) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id, content_length) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id, content_length, options) -> ..."
       ]
 
-    func = find!(:complete_multipart_upload, bucket, doc_examples)
+    func = find!(:copy_parts, dest_bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
         func.()
 
       1 ->
-        func.(bucket)
+        func.(dest_object)
 
       2 ->
-        func.(bucket, object)
+        func.(dest_object, src_bucket)
 
       3 ->
-        func.(bucket, object, upload_id)
+        func.(dest_object, src_bucket, src_object)
 
       4 ->
-        func.(bucket, object, upload_id, parts)
+        func.(dest_object, src_bucket, src_object, upload_id)
 
       5 ->
-        func.(bucket, object, upload_id, parts, opts)
+        func.(dest_object, src_bucket, src_object, upload_id, content_length)
+
+      6 ->
+        func.(
+          dest_object,
+          src_bucket,
+          src_object,
+          upload_id,
+          content_length,
+          opts
+        )
 
       _ ->
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–5):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -328,41 +388,35 @@ defmodule CloudCache.Support.S3Sandbox do
     doc_examples =
       [
         "fn -> ...",
-        "fn (dest_bucket) -> ...",
-        "fn (dest_bucket, dest_object) -> ...",
-        "fn (dest_bucket, dest_object, src_bucket) -> ...",
-        "fn (dest_bucket, dest_object, src_bucket, src_object) -> ...",
-        "fn (dest_bucket, dest_object, src_bucket, src_object, upload_id) -> ...",
-        "fn (dest_bucket, dest_object, src_bucket, src_object, upload_id, part_number) -> ...",
-        "fn (dest_bucket, dest_object, src_bucket, src_object, upload_id, part_number, range) -> ...",
-        "fn (dest_bucket, dest_object, src_bucket, src_object, upload_id, part_number, range, opts) -> ..."
+        "fn (dest_object) -> ...",
+        "fn (dest_object, src_bucket) -> ...",
+        "fn (dest_object, src_bucket, src_object) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id, part_number) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id, part_number, range) -> ...",
+        "fn (dest_object, src_bucket, src_object, upload_id, part_number, range, options) -> ..."
       ]
 
-    func =
-      find!(:copy_part, dest_bucket, doc_examples)
+    func = find!(:copy_part, dest_bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
         func.()
 
       1 ->
-        func.(dest_bucket)
+        func.(dest_object)
 
       2 ->
-        func.(dest_bucket, dest_object)
+        func.(dest_object, src_bucket)
 
       3 ->
-        func.(dest_bucket, dest_object, src_bucket)
+        func.(dest_object, src_bucket, src_object)
 
       4 ->
-        func.(dest_bucket, dest_object, src_bucket, src_object)
+        func.(dest_object, src_bucket, src_object, upload_id)
 
       5 ->
-        func.(dest_bucket, dest_object, src_bucket, src_object, upload_id)
-
-      6 ->
         func.(
-          dest_bucket,
           dest_object,
           src_bucket,
           src_object,
@@ -370,9 +424,8 @@ defmodule CloudCache.Support.S3Sandbox do
           part_number
         )
 
-      7 ->
+      6 ->
         func.(
-          dest_bucket,
           dest_object,
           src_bucket,
           src_object,
@@ -381,9 +434,8 @@ defmodule CloudCache.Support.S3Sandbox do
           range
         )
 
-      8 ->
+      7 ->
         func.(
-          dest_bucket,
           dest_object,
           src_bucket,
           src_object,
@@ -397,7 +449,124 @@ defmodule CloudCache.Support.S3Sandbox do
         raise """
         This function's signature is not supported: #{inspect(func)}
 
-        Please provide a function with one of the following arities (0–8):
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
+  @doc """
+  Returns the registered response function for `complete_multipart_upload/5`
+  in the context of the calling process.
+  """
+  def complete_multipart_upload_response(bucket, object, upload_id, parts, opts \\ []) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (object) -> ...",
+        "fn (object, upload_id) -> ...",
+        "fn (object, upload_id, parts) -> ...",
+        "fn (object, upload_id, parts, options) -> ..."
+      ]
+
+    func = find!(:complete_multipart_upload, bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, upload_id)
+
+      3 ->
+        func.(object, upload_id, parts)
+
+      4 ->
+        func.(object, upload_id, parts, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
+  @doc """
+  Returns the registered response function for `abort_multipart_upload/4`
+  in the context of the calling process.
+  """
+  def abort_multipart_upload_response(bucket, object, upload_id, opts \\ []) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (object) -> ...",
+        "fn (object, upload_id) -> ...",
+        "fn (object, upload_id, options) -> ..."
+      ]
+
+    func = find!(:abort_multipart_upload, bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, upload_id)
+
+      3 ->
+        func.(object, upload_id, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
+  @doc """
+  Returns the registered response function for `create_multipart_upload/3` in the
+  context of the calling process.
+  """
+  def create_multipart_upload_response(bucket, object, opts \\ []) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (object) -> ...",
+        "fn (object, options) -> ..."
+      ]
+
+    func = find!(:create_multipart_upload, bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
 
         #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
         """
@@ -434,81 +603,57 @@ defmodule CloudCache.Support.S3Sandbox do
         end}
       ])
   """
-  def set_pre_sign_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:pre_sign, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
+  def set_describe_object_responses(tuples) do
+    set_responses(:describe_object, tuples)
+  end
 
-    Process.sleep(@sleep)
+  def set_copy_object_responses(tuples) do
+    set_responses(:copy_object, tuples)
+  end
+
+  def set_pre_sign_responses(tuples) do
+    set_responses(:pre_sign, tuples)
   end
 
   def set_list_parts_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:list_parts, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
+    set_responses(:list_parts, tuples)
   end
 
-  def set_create_multipart_upload_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:create_multipart_upload, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
+  def set_upload_part_responses(tuples) do
+    set_responses(:upload_part, tuples)
   end
 
   def set_pre_sign_part_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:pre_sign_part, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
+    set_responses(:pre_sign_part, tuples)
   end
 
-  def set_abort_multipart_upload_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:abort_multipart_upload, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
+  def set_copy_object_multipart_responses(tuples) do
+    set_responses(:copy_object_multipart, tuples)
   end
 
-  def set_complete_multipart_upload_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:complete_multipart_upload, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
+  def set_copy_parts_responses(tuples) do
+    set_responses(:copy_parts, tuples)
   end
 
   def set_copy_part_responses(tuples) do
+    set_responses(:copy_part, tuples)
+  end
+
+  def set_complete_multipart_upload_responses(tuples) do
+    set_responses(:complete_multipart_upload, tuples)
+  end
+
+  def set_abort_multipart_upload_responses(tuples) do
+    set_responses(:abort_multipart_upload, tuples)
+  end
+
+  def set_create_multipart_upload_responses(tuples) do
+    set_responses(:create_multipart_upload, tuples)
+  end
+
+  defp set_responses(key, tuples) do
     tuples
-    |> Map.new(fn {bucket, func} -> {{:copy_part, bucket}, func} end)
+    |> Map.new(fn {bucket, func} -> {{key, bucket}, func} end)
     |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
     |> then(fn
       :ok -> :ok
@@ -581,7 +726,6 @@ defmodule CloudCache.Support.S3Sandbox do
   with a message that shows the available keys and an example of
   how to register responses for the given `action` and `bucket`.
   """
-  @spec find!(action :: atom, bucket :: String.t(), doc_examples :: binary()) :: function
   def find!(action, bucket, doc_examples) do
     case SandboxRegistry.lookup(@registry, @state) do
       {:ok, state} ->
@@ -592,7 +736,7 @@ defmodule CloudCache.Support.S3Sandbox do
         No functions have been registered for #{inspect(self())}.
 
         Action: #{inspect(action)}
-        Bucket: #{inspect(bucket)}
+        Adapter: #{inspect(bucket)}
 
         Add one of the following patterns to your test setup:
 

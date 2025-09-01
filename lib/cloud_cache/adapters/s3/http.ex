@@ -1,4 +1,4 @@
-defmodule CloudCache.S3.HTTP do
+defmodule CloudCache.Adapters.S3.HTTP do
   @moduledoc false
   alias Req.Response
 
@@ -58,7 +58,11 @@ defmodule CloudCache.S3.HTTP do
 
   defp handle_response({:ok, %Response{status: status_code, body: body} = response})
        when status_code in 200..299 do
-    headers = Req.get_headers_list(response)
+    headers =
+      response
+      |> Req.get_headers_list()
+      |> Map.new()
+
     {:ok, %{status_code: status_code, headers: headers, body: body}}
   end
 
@@ -66,11 +70,7 @@ defmodule CloudCache.S3.HTTP do
     {:error, %{reason: response}}
   end
 
-  defp handle_response({:ok, reason}) do
-    {:error, %{reason: {:internal_server_error, reason}}}
-  end
-
   defp handle_response({:error, reason}) do
-    {:error, %{reason: {:internal_server_error, reason}}}
+    {:error, %{reason: reason}}
   end
 end

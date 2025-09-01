@@ -8,7 +8,7 @@ defmodule CloudCache do
 
   defmodule MyApp.S3Cache do
     use CloudCache,
-      adapter: CloudCache.S3,
+      adapter: CloudCache.Adapters.S3,
       options: []
   end
 
@@ -38,70 +38,23 @@ defmodule CloudCache do
       opts
       |> Keyword.get(:caches, [])
       |> Enum.filter(fn
-        {mod, _} -> function_exported?(mod, :child_spec, 1)
-        mod -> function_exported?(mod, :child_spec, 1)
+        {mod, _} -> function_exported?(mod, :supervisor_children, 1)
+        mod -> function_exported?(mod, :supervisor_children, 1)
       end)
+      |> Enum.map(fn
+        {mod, child_opts} -> mod.supervisor_children(Keyword.merge(opts, child_opts))
+        mod -> mod.supervisor_children(opts)
+      end)
+      |> List.flatten()
 
-    # one_for_one means if a child dies, only that child is restarted
     Supervisor.init(children, strategy: :one_for_one)
-  end
-
-  # Cache API
-
-  def describe_object(adapter, bucket, object, opts) do
-    adapter.describe_object(bucket, object, opts)
-  end
-
-  def pre_sign(adapter, bucket, object, opts) do
-    adapter.pre_sign(bucket, object, opts)
-  end
-
-  def list_parts(adapter, bucket, object, upload_id, opts) do
-    adapter.list_parts(bucket, object, upload_id, opts)
-  end
-
-  def pre_sign_part(adapter, bucket, object, upload_id, part_number, opts) do
-    adapter.pre_sign_part(bucket, object, upload_id, part_number, opts)
-  end
-
-  def copy_part(
-        adapter,
-        dest_bucket,
-        dest_object,
-        src_bucket,
-        src_object,
-        upload_id,
-        part_number,
-        range,
-        opts
-      ) do
-    adapter.copy_part(
-      dest_bucket,
-      dest_object,
-      src_bucket,
-      src_object,
-      upload_id,
-      part_number,
-      range,
-      opts
-    )
-  end
-
-  def complete_multipart_upload(adapter, bucket, object, upload_id, parts, opts) do
-    adapter.complete_multipart_upload(bucket, object, upload_id, parts, opts)
-  end
-
-  def abort_multipart_upload(adapter, bucket, object, upload_id, opts) do
-    adapter.abort_multipart_upload(bucket, object, upload_id, opts)
-  end
-
-  def create_multipart_upload(adapter, bucket, object, opts) do
-    adapter.create_multipart_upload(bucket, object, opts)
   end
 
   defmacro __using__(opts) do
     quote do
       opts = unquote(opts)
+
+      alias CloudCache.Adapter
 
       @adapter opts[:adapter]
       @options opts[:options] || []
@@ -113,25 +66,61 @@ defmodule CloudCache do
       def describe_object(bucket, object, opts) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.describe_object(@adapter, bucket, object, opts)
+        Adapter.describe_object(@adapter, bucket, object, opts)
       end
 
       def pre_sign(bucket, object, opts) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.pre_sign(@adapter, bucket, object, opts)
-      end
-
-      def list_parts(bucket, object, upload_id, opts) do
-        opts = Keyword.merge(@options, opts)
-
-        CloudCache.list_parts(@adapter, bucket, object, upload_id, opts)
+        Adapter.pre_sign(@adapter, bucket, object, opts)
       end
 
       def pre_sign_part(bucket, object, upload_id, part_number, opts) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.pre_sign_part(@adapter, bucket, object, upload_id, part_number, opts)
+        Adapter.pre_sign_part(@adapter, bucket, object, upload_id, part_number, opts)
+      end
+
+      def list_parts(bucket, object, upload_id, opts) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.list_parts(@adapter, bucket, object, upload_id, opts)
+      end
+
+      def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_object_multipart(
+          @adapter,
+          dest_bucket,
+          dest_object,
+          src_bucket,
+          src_object,
+          opts
+        )
+      end
+
+      def copy_parts(
+            dest_bucket,
+            dest_object,
+            src_bucket,
+            src_object,
+            upload_id,
+            content_length,
+            opts \\ []
+          ) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_parts(
+          @adapter,
+          dest_bucket,
+          dest_object,
+          src_bucket,
+          src_object,
+          upload_id,
+          content_length,
+          opts
+        )
       end
 
       def copy_part(
@@ -146,7 +135,32 @@ defmodule CloudCache do
           ) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.copy_part(
+        Adapter.copy_part(
+          @adapter,
+          dest_bucket,
+          dest_object,
+          src_bucket,
+          src_object,
+          upload_id,
+          part_number,
+          range,
+          opts
+        )
+      end
+
+      def copy_part(
+            dest_bucket,
+            dest_object,
+            src_bucket,
+            src_object,
+            upload_id,
+            part_number,
+            range,
+            opts
+          ) do
+        opts = Keyword.merge(@options, opts)
+
+        Adapter.copy_part(
           @adapter,
           dest_bucket,
           dest_object,
@@ -162,19 +176,19 @@ defmodule CloudCache do
       def complete_multipart_upload(bucket, object, upload_id, parts, opts) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.complete_multipart_upload(@adapter, bucket, object, upload_id, parts, opts)
+        Adapter.complete_multipart_upload(@adapter, bucket, object, upload_id, parts, opts)
       end
 
       def abort_multipart_upload(bucket, object, upload_id, opts) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.abort_multipart_upload(@adapter, bucket, object, upload_id, opts)
+        Adapter.abort_multipart_upload(@adapter, bucket, object, upload_id, opts)
       end
 
       def create_multipart_upload(bucket, object, opts) do
         opts = Keyword.merge(@options, opts)
 
-        CloudCache.create_multipart_upload(@adapter, bucket, object, opts)
+        Adapter.create_multipart_upload(@adapter, bucket, object, opts)
       end
     end
   end

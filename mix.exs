@@ -49,6 +49,7 @@ defmodule CloudCache.MixProject do
       {:ex_aws, "~> 2.0", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
       {:sweet_xml, ">= 0.0.0", optional: true},
+      {:proper_case, "~> 1.0", optional: true},
       {:timex, "~> 3.0", optional: true},
       {:jason, "~> 1.0", optional: true},
       {:req, "~> 0.5", optional: true},
