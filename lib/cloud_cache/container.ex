@@ -20,15 +20,7 @@ defmodule CloudCache.Container do
   end
 
   defp with_opts(opts, container) do
-    CloudCache.Config.container()
-    |> Keyword.merge(
-      container
-      |> app()
-      |> Kernel.||(CloudCache.Config.app())
-      |> Application.get_env(container)
-    )
-    |> Keyword.merge(options(container))
-    |> Keyword.merge(opts)
+    container |> options() |> Keyword.merge(opts)
   end
 
   defmacro __using__(opts \\ []) do

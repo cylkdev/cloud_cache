@@ -3,9 +3,11 @@ defmodule CloudCache.Config do
 
   @app :cloud_cache
 
+  @mix_env Mix.env()
+
   def app, do: @app
 
-  def container, do: Application.fetch_env!(@app, :container)
-
-  def mix_env, do: Application.fetch_env!(@app, :mix_env)
+  def mix_env do
+    Application.get_env(@app, :mix_env) || @mix_env
+  end
 end
