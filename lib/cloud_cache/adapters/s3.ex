@@ -25,8 +25,10 @@ defmodule CloudCache.Adapters.S3 do
   @one_minute_seconds 60
   @test "test"
 
-  @default_http_client CloudCache.Adapters.S3.HTTP
+  @http_client CloudCache.Adapters.S3.HTTP
   @region "us-west-1"
+  @s3_host "s3.amazonaws.com"
+
   @sandbox_scheme "http://"
   @sandbox_host "s3.localhost.localstack.cloud"
   @sandbox_port 4566
@@ -43,7 +45,7 @@ defmodule CloudCache.Adapters.S3 do
     sandbox_scheme: @sandbox_scheme,
     sandbox_host: @sandbox_host,
     sandbox_port: @sandbox_port,
-    http_client: @default_http_client,
+    http_client: @http_client,
     region: @region,
     access_key_id: if(Mix.env() === :test, do: @test, else: "<ACCESS_KEY_ID>"),
     secret_access_key: if(Mix.env() === :test, do: @test, else: "<SECRET_ACCESS_KEY>"),
@@ -54,39 +56,67 @@ defmodule CloudCache.Adapters.S3 do
     s3: @default_s3_options
   ]
 
+  @s3_config_keys [
+    :port,
+    :scheme,
+    :host,
+    :http_client,
+    :access_key_id,
+    :secret_access_key,
+    :region,
+    :json_codec,
+    :retries,
+    :normalize_path,
+    :require_imds_v2
+  ]
+
   # 64 MiB (67_108_864 bytes)
   @sixty_four_mib 64 * 1_024 * 1_024
 
   @doc """
   Returns the S3 configuration as a map.
+
+  CloudCache.Adapters.S3.config()
   """
   def config(opts \\ []) do
+    sandbox_opts = sandbox_opts(opts)
+    s3_opts = s3_opts(opts)
+
+    overrides =
+      Keyword.merge(
+        s3_opts,
+        host: sandbox_opts[:host] || s3_opts[:host] || @s3_host,
+        scheme: sandbox_opts[:scheme] || s3_opts[:scheme] || "https://",
+        port: sandbox_opts[:port] || s3_opts[:port] || 443,
+        access_key_id: sandbox_opts[:access_key_id] || s3_opts[:access_key_id] || @test,
+        secret_access_key:
+          sandbox_opts[:secret_access_key] || s3_opts[:secret_access_key] || @test
+      )
+
+    ExAws.Config.new(:s3, Keyword.take(overrides, @s3_config_keys))
+  end
+
+  defp s3_opts(opts) do
     opts = Keyword.merge(@default_options, opts)
 
     service_opts =
-      @default_s3_options
+      opts
+      |> Keyword.get(:s3, [])
       |> Keyword.merge(Application.get_all_env(:ex_aws))
       |> Keyword.merge(Application.get_env(@app, :aws) || [])
       |> Keyword.merge(opts[:s3] || [])
 
-    sandbox_endpoint_opts = sandbox_endpoint_opts(opts)
-
-    overrides =
-      opts
-      |> Keyword.merge(sandbox_endpoint_opts)
-      |> Keyword.merge(service_opts)
-      |> Keyword.update(
-        :retries,
-        @default_s3_retries_options,
-        &Keyword.merge(@default_s3_retries_options, &1)
-      )
-
-    ExAws.Config.new(:s3, overrides)
+    opts
+    |> Keyword.merge(service_opts)
+    |> Keyword.update(
+      :retries,
+      @default_s3_retries_options,
+      &Keyword.merge(@default_s3_retries_options, &1)
+    )
   end
 
-  defp sandbox_endpoint_opts(opts) do
+  defp sandbox_opts(opts) do
     mix_env_test? = CloudCache.Config.mix_env() === :test
-
     sandbox_endpoint? = opts[:sandbox_endpoint_enabled] === true
 
     if mix_env_test? or sandbox_endpoint? do
