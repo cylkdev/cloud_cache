@@ -1,7 +1,7 @@
-defmodule CloudCache.Testing.S3SandboxTest do
+defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
   use ExUnit.Case, async: true
   alias CloudCache.Adapters.S3
-  alias CloudCache.Testing.S3Sandbox
+  alias CloudCache.Adapters.S3.Testing.S3Sandbox
 
   @bucket "test-bucket"
   @options [s3: [sandbox: true]]

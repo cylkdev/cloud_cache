@@ -1,4 +1,4 @@
-defmodule CloudCache.Testing.S3LocalStack do
+defmodule CloudCache.Adapters.S3.Testing.LocalStack do
   @moduledoc false
 
   @test "test"

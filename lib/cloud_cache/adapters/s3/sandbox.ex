@@ -1,5 +1,7 @@
-defmodule CloudCache.Testing.S3Sandbox do
+defmodule CloudCache.Adapters.S3.Testing.S3Sandbox do
   @moduledoc false
+
+
 
   @registry :cloud_cache_s3_sandbox
   @state "state"

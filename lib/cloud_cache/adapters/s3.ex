@@ -926,10 +926,10 @@ defmodule CloudCache.Adapters.S3 do
   # -----------------
 
   if Mix.env() === :test do
-    defdelegate sandbox_disabled?, to: CloudCache.Testing.S3Sandbox
+    defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Testing.S3Sandbox
 
     defdelegate sandbox_describe_object_response(bucket, object, opts),
-      to: CloudCache.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :describe_object_response
 
     defdelegate sandbox_copy_object_response(
@@ -939,15 +939,15 @@ defmodule CloudCache.Adapters.S3 do
                   src_object,
                   opts
                 ),
-                to: CloudCache.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
                 as: :copy_object_response
 
     defdelegate sandbox_pre_sign_response(bucket, object, opts),
-      to: CloudCache.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :pre_sign_response
 
     defdelegate sandbox_list_parts_response(bucket, object, upload_id, opts),
-      to: CloudCache.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :list_parts_response
 
     defdelegate sandbox_upload_part_response(
@@ -958,11 +958,11 @@ defmodule CloudCache.Adapters.S3 do
                   body,
                   opts
                 ),
-                to: CloudCache.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
                 as: :upload_part_response
 
     defdelegate sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts),
-      to: CloudCache.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :pre_sign_part_response
 
     defdelegate sandbox_copy_object_multipart_response(
@@ -972,7 +972,7 @@ defmodule CloudCache.Adapters.S3 do
                   src_object,
                   opts
                 ),
-                to: CloudCache.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
                 as: :copy_object_multipart_response
 
     defdelegate sandbox_copy_parts_response(
@@ -984,7 +984,7 @@ defmodule CloudCache.Adapters.S3 do
                   content_length,
                   opts
                 ),
-                to: CloudCache.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
                 as: :copy_parts_response
 
     defdelegate sandbox_copy_part_response(
@@ -997,7 +997,7 @@ defmodule CloudCache.Adapters.S3 do
                   range,
                   opts
                 ),
-                to: CloudCache.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
                 as: :copy_part_response
 
     defdelegate sandbox_complete_multipart_upload_response(
@@ -1007,15 +1007,15 @@ defmodule CloudCache.Adapters.S3 do
                   parts,
                   opts
                 ),
-                to: CloudCache.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
                 as: :complete_multipart_upload_response
 
     defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts),
-      to: CloudCache.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :abort_multipart_upload_response
 
     defdelegate sandbox_create_multipart_upload_response(bucket, object, opts),
-      to: CloudCache.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :create_multipart_upload_response
   else
     defp sandbox_disabled?, do: true

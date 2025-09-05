@@ -1,3 +1,3 @@
 ExUnit.start()
 
-CloudCache.Testing.S3Sandbox.start_link()
+CloudCache.Adapters.S3.Testing.S3Sandbox.start_link()
