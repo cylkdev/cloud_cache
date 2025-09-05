@@ -79,7 +79,8 @@ defmodule CloudCache.Adapters.S3 do
   CloudCache.Adapters.S3.config()
   """
   def config(opts \\ []) do
-    sandbox_opts = sandbox_opts(opts)
+    sandbox_opts = sandbox_opts(opts) |> IO.inspect()
+
     s3_opts = s3_opts(opts)
 
     overrides =
@@ -117,12 +118,13 @@ defmodule CloudCache.Adapters.S3 do
 
   defp sandbox_opts(opts) do
     mix_env_test? = CloudCache.Config.mix_env() === :test
+
     sandbox_endpoint? = opts[:sandbox_endpoint_enabled] === true
 
     if mix_env_test? or sandbox_endpoint? do
       if Keyword.has_key?(opts, :sandbox_endpoint) do
         uri = opts |> Keyword.fetch!(:sandbox_endpoint) |> URI.parse()
-        scheme = uri_scheme!(uri.scheme || @sandbox_scheme)
+        scheme = ensure_uri_scheme(uri.scheme || @sandbox_scheme)
         host = uri.host || @sandbox_host
         port = uri.port || @sandbox_port
 
@@ -133,7 +135,7 @@ defmodule CloudCache.Adapters.S3 do
         ]
       else
         [
-          scheme: uri_scheme!(opts[:sandbox_scheme] || @sandbox_scheme),
+          scheme: ensure_uri_scheme(opts[:sandbox_scheme] || @sandbox_scheme),
           host: opts[:sandbox_host] || @sandbox_host,
           port: opts[:sandbox_port] || @sandbox_port
         ]
@@ -143,10 +145,10 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
-  defp uri_scheme!("https://"), do: "https://"
-  defp uri_scheme!("http://"), do: "https://"
-  defp uri_scheme!("https"), do: "https://"
-  defp uri_scheme!("http"), do: "http://"
+  defp ensure_uri_scheme("https://"), do: "https://"
+  defp ensure_uri_scheme("http://"), do: "http://"
+  defp ensure_uri_scheme("https"), do: "https://"
+  defp ensure_uri_scheme("http"), do: "http://"
 
   @impl true
   @doc """
