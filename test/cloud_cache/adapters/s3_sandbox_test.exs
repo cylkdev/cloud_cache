@@ -3,12 +3,15 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
   alias CloudCache.Adapters.S3
   alias CloudCache.Adapters.S3.Testing.S3Sandbox
 
+  @non_existent_bucket "non-existent-bucket"
+  @non_existent_object "non-existent-object"
   @bucket "test-bucket"
-  @options [s3: [sandbox: true]]
+  @object "test-object"
+  @options [s3: [sandbox_enabled: true]]
 
-  describe "describe_object/3" do
+  describe "head_object/3" do
     test "returns object metadata on success" do
-      S3Sandbox.set_describe_object_responses([
+      S3Sandbox.set_head_object_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -33,11 +36,11 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                   etag: "abcdef1234567890",
                   last_modified: "Tue, 01 Jan 2021 00:00:00 GMT"
                 }
-              }} = S3.describe_object(@bucket, "test-object", @options)
+              }} = S3.head_object(@bucket, @object, @options)
     end
 
     test "returns not_found error if object does not exist" do
-      S3Sandbox.set_describe_object_responses([
+      S3Sandbox.set_head_object_responses([
         {@bucket,
          fn ->
            {:error,
@@ -60,7 +63,32 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                   bucket: @bucket,
                   object: "nonexistent.txt"
                 }
-              }} = S3.describe_object(@bucket, "nonexistent.txt", @options)
+              }} = S3.head_object(@bucket, "nonexistent.txt", @options)
+    end
+  end
+
+  describe "put_object/4" do
+    test "successfully puts an object in the sandbox" do
+      S3Sandbox.set_put_object_responses([
+        {~r|.*|, fn -> {:ok, %{body: %{"result" => "success"}}} end}
+      ])
+
+      body = "test-content"
+
+      assert {:ok, response} = S3.put_object(@bucket, @object, body, @options)
+
+      assert response.body == %{"result" => "success"}
+    end
+
+    test "returns an error when bucket is not found" do
+      S3Sandbox.set_put_object_responses([
+        {~r|.*|, fn -> {:error, %{message: "bucket not found"}} end}
+      ])
+
+      body = "test-content"
+
+      assert {:error, %{message: "bucket not found"}} =
+               S3.put_object(@non_existent_bucket, @object, body, @options)
     end
   end
 
@@ -88,7 +116,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                 },
                 headers: %{}
               }} =
-               S3.copy_object(@bucket, "dest-test-object", @bucket, "src-test-object", @options)
+               S3.copy_object(@bucket, @object, @bucket, @object, @options)
     end
 
     test "returns not_found error if object does not exist" do
@@ -101,9 +129,9 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               message: "object not found",
               details: %{
                 dest_bucket: @bucket,
-                dest_object: "test-object",
+                dest_object: @object,
                 src_bucket: @bucket,
-                src_object: "nonexistent-object"
+                src_object: @non_existent_object
               }
             }}
          end}
@@ -115,12 +143,12 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                 message: "object not found",
                 details: %{
                   dest_bucket: @bucket,
-                  dest_object: "test-object",
+                  dest_object: @object,
                   src_bucket: @bucket,
-                  src_object: "nonexistent-object"
+                  src_object: @non_existent_object
                 }
               }} =
-               S3.copy_object(@bucket, "test-object", @bucket, "nonexistent-object", @options)
+               S3.copy_object(@bucket, @object, @bucket, @non_existent_object, @options)
     end
   end
 
@@ -141,11 +169,11 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
 
       assert {:ok,
               %{
-                key: "test-object",
+                key: @object,
                 url: "https://example.com/test-object?signature=fake-signature",
                 expires_in: 60,
                 expires_at: ~U[2025-08-30 01:00:00.000000Z]
-              }} = S3.pre_sign(@bucket, "test-object", @options)
+              }} = S3.pre_sign(@bucket, @object, @options)
     end
   end
 
@@ -159,7 +187,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
       ])
 
       assert {:ok, {parts, count}} =
-               S3.list_parts(@bucket, "test-object", "upload_id_123", @options)
+               S3.list_parts(@bucket, @object, "upload_id_123", @options)
 
       assert [%{part_number: 1, size: 5_247_794, etag: "etag_123"}] = parts
       assert 1 = count
@@ -175,7 +203,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               message: "object not found",
               details: %{
                 bucket: @bucket,
-                object: "test-object",
+                object: @object,
                 upload_id: "upload_id"
               }
             }}
@@ -188,11 +216,11 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                 message: "object not found",
                 details: %{
                   bucket: @bucket,
-                  object: "test-object",
+                  object: @object,
                   upload_id: "upload_id"
                 }
               }} =
-               S3.list_parts(@bucket, "test-object", "upload_id", @options)
+               S3.list_parts(@bucket, @object, "upload_id", @options)
     end
   end
 
@@ -203,7 +231,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
          fn _object, _upload_id, part_number ->
            {:ok,
             %{
-              key: "test-object",
+              key: @object,
               url: "https://example.com/test-object?partNumber=#{part_number}&signature=fake",
               expires_in: 120,
               expires_at: ~U[2025-08-30 01:00:00.000000Z]
@@ -213,11 +241,11 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
 
       assert {:ok,
               %{
-                key: "test-object",
+                key: @object,
                 url: "https://example.com/test-object?partNumber=1&signature=fake",
                 expires_in: 120,
                 expires_at: ~U[2025-08-30 01:00:00.000000Z]
-              }} = S3.pre_sign_part(@bucket, "test-object", "upload_id_123", 1, @options)
+              }} = S3.pre_sign_part(@bucket, @object, "upload_id_123", 1, @options)
     end
   end
 
@@ -247,7 +275,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               }} =
                S3.upload_part(
                  @bucket,
-                 "test-object",
+                 @object,
                  "upload_id",
                  1,
                  "content",
@@ -265,7 +293,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               message: "object not found",
               details: %{
                 bucket: @bucket,
-                object: "nonexistent-object",
+                object: @non_existent_object,
                 upload_id: "upload_id",
                 part_number: 1
               }
@@ -280,7 +308,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               }} =
                S3.upload_part(
                  @bucket,
-                 "nonexistent-object",
+                 @non_existent_object,
                  "upload_id",
                  1,
                  "content",
@@ -301,9 +329,9 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
       assert {:ok, [{1, "etag_1"}, {2, "etag_2"}]} =
                S3.copy_parts(
                  @bucket,
-                 "dest-test-object",
+                 @object,
                  @bucket,
-                 "src-test-object",
+                 @object,
                  "upload_id",
                  123,
                  @options
@@ -326,9 +354,9 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               }} =
                S3.copy_parts(
                  @bucket,
-                 "dest-test-object",
+                 @object,
                  @bucket,
-                 "src-test-object",
+                 @object,
                  "upload_id",
                  123,
                  @options
@@ -358,7 +386,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                  @bucket,
                  "dest.txt",
                  @bucket,
-                 "test-object",
+                 @object,
                  "upload_id_123",
                  1,
                  "bytes=0-99",
@@ -384,7 +412,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                  @bucket,
                  "dest.txt",
                  @bucket,
-                 "test-object",
+                 @object,
                  "upload_id_123",
                  2,
                  0..99,
@@ -401,14 +429,14 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
            {:ok,
             %{
               bucket: @bucket,
-              key: "test-object",
+              key: @object,
               upload_id: "upload_id_123"
             }}
          end}
       ])
 
-      assert {:ok, %{bucket: @bucket, key: "test-object", upload_id: "upload_id_123"}} =
-               S3.create_multipart_upload(@bucket, "test-object", @options)
+      assert {:ok, %{bucket: @bucket, key: @object, upload_id: "upload_id_123"}} =
+               S3.create_multipart_upload(@bucket, @object, @options)
     end
 
     test "returns service_unavailable error on failure to initiate upload" do
@@ -428,7 +456,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                 code: :service_unavailable,
                 message: "service temporarily unavailable"
               }} =
-               S3.create_multipart_upload(@bucket, "test-object", @options)
+               S3.create_multipart_upload(@bucket, @object, @options)
     end
   end
 
@@ -456,7 +484,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               }} =
                S3.complete_multipart_upload(
                  @bucket,
-                 "test-object",
+                 @object,
                  "upload_id_123",
                  {"1", "etag_123"},
                  @options
@@ -482,7 +510,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
               }} =
                S3.complete_multipart_upload(
                  @bucket,
-                 "test-object",
+                 @object,
                  "bad_upload_id",
                  [{1, "etag"}],
                  @options
@@ -520,7 +548,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                   {"server", "AmazonS3"}
                 ]
               }} =
-               S3.abort_multipart_upload(@bucket, "test-object", "upload_id_123", @options)
+               S3.abort_multipart_upload(@bucket, @object, "upload_id_123", @options)
     end
 
     test "returns service_unavailable error on failure to abort" do
@@ -540,7 +568,7 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
                 code: :service_unavailable,
                 message: "service temporarily unavailable"
               }} =
-               S3.abort_multipart_upload(@bucket, "test-object", "upload_id_123", @options)
+               S3.abort_multipart_upload(@bucket, @object, "upload_id_123", @options)
     end
   end
 end

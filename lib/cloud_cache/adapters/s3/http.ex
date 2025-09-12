@@ -2,9 +2,13 @@ defmodule CloudCache.Adapters.S3.HTTP do
   @moduledoc false
   alias Req.Response
 
+  @logger_prefix ""
+
   @default_opts [decode_body: false]
 
   def request(:get, url, _body, headers, opts) do
+    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=GET")
+
     @default_opts
     |> Keyword.merge(opts)
     |> Keyword.merge(url: url, headers: headers)
@@ -13,6 +17,8 @@ defmodule CloudCache.Adapters.S3.HTTP do
   end
 
   def request(:head, url, _body, headers, opts) do
+    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=HEAD")
+
     @default_opts
     |> Keyword.merge(opts)
     |> Keyword.merge(url: url, headers: headers)
@@ -21,6 +27,8 @@ defmodule CloudCache.Adapters.S3.HTTP do
   end
 
   def request(:delete, url, _body, headers, opts) do
+    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=DELETE")
+
     @default_opts
     |> Keyword.merge(opts)
     |> Keyword.merge(url: url, headers: headers)
@@ -29,6 +37,8 @@ defmodule CloudCache.Adapters.S3.HTTP do
   end
 
   def request(:post, url, body, headers, opts) do
+    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=POST")
+
     @default_opts
     |> Keyword.merge(opts)
     |> Keyword.merge(url: url, headers: headers)
@@ -38,6 +48,8 @@ defmodule CloudCache.Adapters.S3.HTTP do
   end
 
   def request(:put, url, body, headers, opts) do
+    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=PUT")
+
     @default_opts
     |> Keyword.merge(opts)
     |> Keyword.merge(url: url, headers: headers)
@@ -56,14 +68,14 @@ defmodule CloudCache.Adapters.S3.HTTP do
     end
   end
 
-  defp handle_response({:ok, %Response{status: status_code, body: body} = response})
+  defp handle_response({:ok, %Response{status: status_code} = response})
        when status_code in 200..299 do
     headers =
       response
       |> Req.get_headers_list()
       |> Map.new()
 
-    {:ok, %{status_code: status_code, headers: headers, body: body}}
+    {:ok, %{status_code: status_code, headers: headers, body: response.body}}
   end
 
   defp handle_response({:ok, %Response{} = response}) do

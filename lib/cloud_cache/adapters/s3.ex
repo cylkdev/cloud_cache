@@ -19,41 +19,33 @@ defmodule CloudCache.Adapters.S3 do
 
   @behaviour CloudCache.Adapter
 
-  @app CloudCache.Config.app()
-
   @logger_prefix "CloudCache.Adapters.S3"
-  @one_minute_seconds 60
-  @test "test"
 
+  @one_minute_seconds 60
   @http_client CloudCache.Adapters.S3.HTTP
   @region "us-west-1"
-  @s3_host "s3.amazonaws.com"
-
   @sandbox_scheme "http://"
   @sandbox_host "s3.localhost.localstack.cloud"
   @sandbox_port 4566
-
-  @default_s3_retries_options [
+  @default_retry_options [
     max_attempts: if(Mix.env() === :test, do: 1, else: 10),
     base_backoff_in_ms: 10,
     max_backoff_in_ms: 10_000
   ]
-
-  @default_s3_options [
-    sandbox: Mix.env() === :test,
-    sandbox_endpoint_enabled: Mix.env() === :test,
-    sandbox_scheme: @sandbox_scheme,
-    sandbox_host: @sandbox_host,
-    sandbox_port: @sandbox_port,
-    http_client: @http_client,
-    region: @region,
-    access_key_id: if(Mix.env() === :test, do: @test, else: "<ACCESS_KEY_ID>"),
-    secret_access_key: if(Mix.env() === :test, do: @test, else: "<SECRET_ACCESS_KEY>"),
-    retries: @default_s3_retries_options
-  ]
-
   @default_options [
-    s3: @default_s3_options
+    s3: [
+      sandbox_enabled: Mix.env() === :test,
+      sandbox: [
+        scheme: @sandbox_scheme,
+        host: @sandbox_host,
+        port: @sandbox_port
+      ],
+      http_client: @http_client,
+      region: @region,
+      access_key_id: if(Mix.env() === :test, do: "test", else: "<ACCESS_KEY_ID>"),
+      secret_access_key: if(Mix.env() === :test, do: "test", else: "<SECRET_ACCESS_KEY>"),
+      retries: @default_retry_options
+    ]
   ]
 
   @s3_config_keys [
@@ -79,87 +71,71 @@ defmodule CloudCache.Adapters.S3 do
   CloudCache.Adapters.S3.config()
   """
   def config(opts \\ []) do
-    sandbox_opts = sandbox_opts(opts) |> IO.inspect()
+    opts =
+      Keyword.merge(@default_options, opts, fn
+        _k, v1, v2 when is_list(v2) -> Keyword.merge(v1, v2)
+        _k, v1, v2 when is_map(v2) -> Map.merge(v1, v2)
+        _, _v1, v2 -> v2
+      end)
 
-    s3_opts = s3_opts(opts)
+    sandbox_opts =
+      if CloudCache.Config.mix_env() === :test do
+        sandbox_opts = opts[:sandbox] || []
+
+        case sandbox_opts[:endpoint] do
+          nil ->
+            [
+              scheme: uri_scheme(sandbox_opts[:scheme] || @sandbox_scheme),
+              host: sandbox_opts[:host] || @sandbox_host,
+              port: sandbox_opts[:port] || @sandbox_port
+            ]
+
+          uri ->
+            uri = URI.parse(uri)
+            scheme = uri_scheme(uri.scheme || @sandbox_scheme)
+            host = uri.host || @sandbox_host
+            port = uri.port || @sandbox_port
+
+            [
+              scheme: scheme,
+              host: host,
+              port: port
+            ]
+        end
+      else
+        []
+      end
 
     overrides =
-      Keyword.merge(
-        s3_opts,
-        host: sandbox_opts[:host] || s3_opts[:host] || @s3_host,
-        scheme: sandbox_opts[:scheme] || s3_opts[:scheme] || "https://",
-        port: sandbox_opts[:port] || s3_opts[:port] || 443,
-        access_key_id: sandbox_opts[:access_key_id] || s3_opts[:access_key_id] || @test,
-        secret_access_key:
-          sandbox_opts[:secret_access_key] || s3_opts[:secret_access_key] || @test
-      )
-
-    ExAws.Config.new(:s3, Keyword.take(overrides, @s3_config_keys))
-  end
-
-  defp s3_opts(opts) do
-    opts = Keyword.merge(@default_options, opts)
-
-    service_opts =
-      opts
-      |> Keyword.get(:s3, [])
-      |> Keyword.merge(Application.get_all_env(:ex_aws))
-      |> Keyword.merge(Application.get_env(@app, :aws) || [])
+      :ex_aws
+      |> Application.get_all_env()
       |> Keyword.merge(opts[:s3] || [])
+      |> Keyword.update(
+        :retries,
+        @default_retry_options,
+        &Keyword.merge(@default_retry_options, &1)
+      )
+      |> then(&Keyword.merge(sandbox_opts, &1))
+      |> Keyword.take(@s3_config_keys)
+      |> dbg()
 
-    opts
-    |> Keyword.merge(service_opts)
-    |> Keyword.update(
-      :retries,
-      @default_s3_retries_options,
-      &Keyword.merge(@default_s3_retries_options, &1)
-    )
+    ExAws.Config.new(:s3, overrides)
   end
 
-  defp sandbox_opts(opts) do
-    mix_env_test? = CloudCache.Config.mix_env() === :test
-
-    sandbox_endpoint? = opts[:sandbox_endpoint_enabled] === true
-
-    if mix_env_test? or sandbox_endpoint? do
-      if Keyword.has_key?(opts, :sandbox_endpoint) do
-        uri = opts |> Keyword.fetch!(:sandbox_endpoint) |> URI.parse()
-        scheme = ensure_uri_scheme(uri.scheme || @sandbox_scheme)
-        host = uri.host || @sandbox_host
-        port = uri.port || @sandbox_port
-
-        [
-          scheme: scheme,
-          host: host,
-          port: port
-        ]
-      else
-        [
-          scheme: ensure_uri_scheme(opts[:sandbox_scheme] || @sandbox_scheme),
-          host: opts[:sandbox_host] || @sandbox_host,
-          port: opts[:sandbox_port] || @sandbox_port
-        ]
-      end
-    else
-      []
-    end
-  end
-
-  defp ensure_uri_scheme("https://"), do: "https://"
-  defp ensure_uri_scheme("http://"), do: "http://"
-  defp ensure_uri_scheme("https"), do: "https://"
-  defp ensure_uri_scheme("http"), do: "http://"
+  defp uri_scheme("https" <> _), do: "https://"
+  defp uri_scheme("http" <> _), do: "http://"
+  defp uri_scheme(_), do: "https://"
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.describe_object("requis-developer-sandbox", "Bootstrap.png", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
+  CloudCache.Adapters.S3.head_object("requis-developer-sandbox", "Bootstrap.png", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
 
-  CloudCache.Adapters.S3.describe_object("requis-developer-sandbox", "does_not_exist", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
+  CloudCache.Adapters.S3.head_object("requis-developer-sandbox", "does_not_exist", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
   """
-  def describe_object(bucket, object, opts \\ []) do
+  def head_object(bucket, object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket |> S3.head_object(object, opts) |> perform(opts) do
@@ -178,7 +154,46 @@ defmodule CloudCache.Adapters.S3 do
            })}
       end
     else
-      sandbox_describe_object_response(bucket, object, opts)
+      sandbox_head_object_response(bucket, object, opts)
+    end
+  end
+
+  @impl true
+  @doc """
+  ...
+  """
+  def put_object(bucket, object, body, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket
+           |> S3.put_object(object, body, opts)
+           |> perform(opts) do
+        {:ok, %{body: body} = response} ->
+          {:ok, %{response | body: maybe_parse_xml(body)}}
+
+        {:error, %{status: status} = reason} when status in 400..499 ->
+          {:error,
+           ErrorMessage.not_found("bucket not found", %{
+             bucket: bucket,
+             object: object,
+             body: body,
+             reason: reason
+           })}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             bucket: bucket,
+             object: object,
+             body: body,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_put_object_response(bucket, object, body, opts)
     end
   end
 
@@ -189,7 +204,7 @@ defmodule CloudCache.Adapters.S3 do
   def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case dest_bucket
@@ -229,7 +244,7 @@ defmodule CloudCache.Adapters.S3 do
   def pre_sign(bucket, object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       http_method = opts[:http_method] || :put
@@ -268,7 +283,7 @@ defmodule CloudCache.Adapters.S3 do
   def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
@@ -312,7 +327,7 @@ defmodule CloudCache.Adapters.S3 do
   def list_parts(bucket, object, upload_id, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       list_parts_opts =
@@ -362,7 +377,7 @@ defmodule CloudCache.Adapters.S3 do
   def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
@@ -405,10 +420,10 @@ defmodule CloudCache.Adapters.S3 do
   def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      with {:ok, describe_obj} <- describe_object(src_bucket, src_object, opts),
+      with {:ok, describe_obj} <- head_object(src_bucket, src_object, opts),
            {:ok, create_mpu} <- create_multipart_upload(dest_bucket, dest_object, opts),
            {:ok, parts} <-
              copy_parts(
@@ -454,7 +469,7 @@ defmodule CloudCache.Adapters.S3 do
       ) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       content_byte_stream_opts = opts[:content_byte_stream] || []
@@ -594,7 +609,7 @@ defmodule CloudCache.Adapters.S3 do
       ) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       dest_bucket
@@ -652,7 +667,7 @@ defmodule CloudCache.Adapters.S3 do
   def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
@@ -698,7 +713,7 @@ defmodule CloudCache.Adapters.S3 do
   def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
@@ -746,7 +761,7 @@ defmodule CloudCache.Adapters.S3 do
   def create_multipart_upload(bucket, object, opts) do
     opts = Keyword.merge(@default_options, opts)
 
-    sandbox? = opts[:s3][:sandbox] === true
+    sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
@@ -930,9 +945,13 @@ defmodule CloudCache.Adapters.S3 do
   if Mix.env() === :test do
     defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Testing.S3Sandbox
 
-    defdelegate sandbox_describe_object_response(bucket, object, opts),
+    defdelegate sandbox_head_object_response(bucket, object, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
-      as: :describe_object_response
+      as: :head_object_response
+
+    defdelegate sandbox_put_object_response(bucket, object, body, opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :put_object_response
 
     defdelegate sandbox_copy_object_response(
                   dest_bucket,
@@ -1022,12 +1041,23 @@ defmodule CloudCache.Adapters.S3 do
   else
     defp sandbox_disabled?, do: true
 
-    defp sandbox_describe_object_response(bucket, object, opts) do
+    defp sandbox_head_object_response(bucket, object, opts) do
       raise """
-      Cannot use #{inspect(__MODULE__)}.describe_object/3 outside of test.
+      Cannot use #{inspect(__MODULE__)}.head_object/3 outside of test.
 
       bucket: #{inspect(bucket)}
       object: #{inspect(object)}
+      options: #{inspect(opts)}
+      """
+    end
+
+    defp sandbox_put_object_response(bucket, object, body, opts) do
+      raise """
+      Cannot use #{inspect(__MODULE__)}.copy_object/5 outside of test.
+
+      bucket: #{inspect(bucket)}
+      object: #{inspect(object)}
+      body: #{inspect(body)}
       options: #{inspect(opts)}
       """
     end

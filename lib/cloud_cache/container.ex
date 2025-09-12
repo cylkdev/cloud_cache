@@ -13,10 +13,10 @@ defmodule CloudCache.Container do
 
   def options(container), do: container.options()
 
-  def describe_object(container, key, opts \\ []) do
+  def head_object(container, key, opts \\ []) do
     container
     |> endpoint()
-    |> Endpoint.describe_object(source(container), key, with_opts(opts, container))
+    |> Endpoint.head_object(source(container), key, with_opts(opts, container))
   end
 
   defp with_opts(opts, container) do
@@ -48,8 +48,8 @@ defmodule CloudCache.Container do
       @impl true
       def options, do: @options
 
-      def describe_object(container, key, opts \\ []) do
-        Container.describe_object(__MODULE__, key, opts)
+      def head_object(container, key, opts \\ []) do
+        Container.head_object(__MODULE__, key, opts)
       end
     end
   end

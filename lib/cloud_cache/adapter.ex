@@ -10,9 +10,16 @@ defmodule CloudCache.Adapter do
 
   @callback supervisor_children(opts :: options()) :: list()
 
-  @callback describe_object(
+  @callback head_object(
               bucket :: bucket(),
               object :: object(),
+              opts :: options()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback put_object(
+              bucket :: bucket(),
+              object :: object(),
+              body :: any(),
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
@@ -108,50 +115,54 @@ defmodule CloudCache.Adapter do
 
   # Non-Multipart Upload API
 
-  def describe_object(impl, bucket, object, opts \\ []) do
-    impl.describe_object(bucket, object, opts)
+  def head_object(adapter, bucket, object, opts \\ []) do
+    adapter.head_object(bucket, object, opts)
   end
 
-  def pre_sign(impl, bucket, object, opts \\ []) do
-    impl.pre_sign(bucket, object, opts)
+  def pre_sign(adapter, bucket, object, opts \\ []) do
+    adapter.pre_sign(bucket, object, opts)
   end
 
-  def copy_object(impl, dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    impl.copy_object(dest_bucket, dest_object, src_bucket, src_object, opts)
+  def put_object(adapter, bucket, object, body, opts \\ []) do
+    adapter.copy_object(bucket, object, body, opts)
+  end
+
+  def copy_object(adapter, dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+    adapter.copy_object(dest_bucket, dest_object, src_bucket, src_object, opts)
   end
 
   # Multipart Upload API
 
-  def pre_sign_part(impl, bucket, object, upload_id, part_number, opts \\ []) do
-    impl.pre_sign_part(bucket, object, upload_id, part_number, opts)
+  def pre_sign_part(adapter, bucket, object, upload_id, part_number, opts \\ []) do
+    adapter.pre_sign_part(bucket, object, upload_id, part_number, opts)
   end
 
-  def upload_part(impl, bucket, object, upload_id, part_number, body, opts \\ []) do
-    impl.upload_part(bucket, object, upload_id, part_number, body, opts)
+  def upload_part(adapter, bucket, object, upload_id, part_number, body, opts \\ []) do
+    adapter.upload_part(bucket, object, upload_id, part_number, body, opts)
   end
 
-  def list_parts(impl, bucket, object, upload_id, opts \\ []) do
-    impl.list_parts(bucket, object, upload_id, opts)
+  def list_parts(adapter, bucket, object, upload_id, opts \\ []) do
+    adapter.list_parts(bucket, object, upload_id, opts)
   end
 
-  def complete_multipart_upload(impl, bucket, object, upload_id, parts, opts \\ []) do
-    impl.complete_multipart_upload(bucket, object, upload_id, parts, opts)
+  def complete_multipart_upload(adapter, bucket, object, upload_id, parts, opts \\ []) do
+    adapter.complete_multipart_upload(bucket, object, upload_id, parts, opts)
   end
 
-  def abort_multipart_upload(impl, bucket, object, upload_id, opts \\ []) do
-    impl.abort_multipart_upload(bucket, object, upload_id, opts)
+  def abort_multipart_upload(adapter, bucket, object, upload_id, opts \\ []) do
+    adapter.abort_multipart_upload(bucket, object, upload_id, opts)
   end
 
-  def create_multipart_upload(impl, bucket, object, opts \\ []) do
-    impl.create_multipart_upload(bucket, object, opts)
+  def create_multipart_upload(adapter, bucket, object, opts \\ []) do
+    adapter.create_multipart_upload(bucket, object, opts)
   end
 
-  def copy_object_multipart(impl, dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    impl.copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts)
+  def copy_object_multipart(adapter, dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+    adapter.copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts)
   end
 
   def copy_parts(
-        impl,
+        adapter,
         dest_bucket,
         dest_object,
         src_bucket,
@@ -160,7 +171,7 @@ defmodule CloudCache.Adapter do
         content_length,
         opts \\ []
       ) do
-    impl.copy_parts(
+    adapter.copy_parts(
       dest_bucket,
       dest_object,
       src_bucket,
@@ -172,7 +183,7 @@ defmodule CloudCache.Adapter do
   end
 
   def copy_part(
-        impl,
+        adapter,
         dest_bucket,
         dest_object,
         src_bucket,
@@ -182,7 +193,7 @@ defmodule CloudCache.Adapter do
         src_range,
         opts \\ []
       ) do
-    impl.copy_part(
+    adapter.copy_part(
       dest_bucket,
       dest_object,
       src_bucket,

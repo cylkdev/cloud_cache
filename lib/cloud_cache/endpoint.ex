@@ -13,7 +13,7 @@ defmodule CloudCache.Endpoint do
 
   @callback options :: options()
 
-  @callback describe_object(
+  @callback head_object(
               bucket :: bucket(),
               object :: object(),
               opts :: options()
@@ -113,8 +113,8 @@ defmodule CloudCache.Endpoint do
 
   # Non-Multipart Upload API
 
-  def describe_object(impl, bucket, object, opts \\ []) do
-    impl.describe_object(bucket, object, opts)
+  def head_object(impl, bucket, object, opts \\ []) do
+    impl.head_object(bucket, object, opts)
   end
 
   def pre_sign(impl, bucket, object, opts \\ []) do
@@ -238,10 +238,10 @@ defmodule CloudCache.Endpoint do
       end
 
       @impl true
-      def describe_object(bucket, object, opts) do
+      def head_object(bucket, object, opts) do
         opts = Keyword.merge(@options, opts)
 
-        Adapter.describe_object(@adapter, bucket, object, opts)
+        Adapter.head_object(@adapter, bucket, object, opts)
       end
 
       @impl true

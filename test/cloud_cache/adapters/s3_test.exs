@@ -3,15 +3,10 @@ defmodule CloudCache.Adapters.S3Test do
   alias CloudCache.Adapters.S3.Testing.LocalStack
   alias CloudCache.Adapters.S3
 
-  @region "us-west-1"
   @bucket "test-bucket"
-  @options [s3: [sandbox: false]]
+  @options [s3: [sandbox_enabled: false]]
 
-  setup_all do
-    assert {:ok, _} = LocalStack.head_or_create_bucket(@region, @bucket, [])
-  end
-
-  describe "describe_object/3" do
+  describe "head_object/3" do
     test "returns object metadata on success" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"
 
@@ -25,7 +20,7 @@ defmodule CloudCache.Adapters.S3Test do
                   etag: etag,
                   last_modified: last_modified
                 }
-              }} = S3.describe_object(@bucket, dest_object, @options)
+              }} = S3.head_object(@bucket, dest_object, @options)
 
       assert content_length >= 0
       assert content_type
@@ -43,7 +38,7 @@ defmodule CloudCache.Adapters.S3Test do
                   object: "nonexistent-object"
                 }
               }} =
-               S3.describe_object(@bucket, "nonexistent-object", @options)
+               S3.head_object(@bucket, "nonexistent-object", @options)
     end
   end
 

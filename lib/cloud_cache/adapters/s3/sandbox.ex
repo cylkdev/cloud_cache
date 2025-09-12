@@ -16,10 +16,10 @@ if Code.ensure_loaded?(SandboxRegistry) do
     end
 
     @doc """
-    Returns the registered response function for `describe_object/3` in the
+    Returns the registered response function for `head_object/3` in the
     context of the calling process.
     """
-    def describe_object_response(bucket, object, opts \\ []) do
+    def head_object_response(bucket, object, opts \\ []) do
       doc_examples =
         [
           "fn -> ...",
@@ -27,7 +27,7 @@ if Code.ensure_loaded?(SandboxRegistry) do
           "fn (object, options) -> ..."
         ]
 
-      func = find!(:describe_object, bucket, doc_examples)
+      func = find!(:head_object, bucket, doc_examples)
 
       case :erlang.fun_info(func)[:arity] do
         0 ->
@@ -38,6 +38,48 @@ if Code.ensure_loaded?(SandboxRegistry) do
 
         2 ->
           func.(object, opts)
+
+        _ ->
+          raise """
+          This function's signature is not supported: #{inspect(func)}
+
+          Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+          #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+          """
+      end
+    end
+
+    @doc """
+    Returns the registered response function for `copy_object/5` in the
+    context of the calling process.
+    """
+    def put_object_response(bucket, object, body, opts \\ []) do
+      doc_examples =
+        [
+          "fn -> ...",
+          "fn (object) -> ...",
+          "fn (object, body) -> ...",
+          "fn (object, body, options) -> ..."
+        ]
+
+      func = find!(:put_object, bucket, doc_examples)
+
+      case :erlang.fun_info(func)[:arity] do
+        0 ->
+          func.()
+
+        1 ->
+          func.(object)
+
+        2 ->
+          func.(object, bucket)
+
+        3 ->
+          func.(object, bucket, body)
+
+        4 ->
+          func.(object, bucket, body, opts)
 
         _ ->
           raise """
@@ -610,8 +652,12 @@ if Code.ensure_loaded?(SandboxRegistry) do
           end}
         ])
     """
-    def set_describe_object_responses(tuples) do
-      set_responses(:describe_object, tuples)
+    def set_head_object_responses(tuples) do
+      set_responses(:head_object, tuples)
+    end
+
+    def set_put_object_responses(tuples) do
+      set_responses(:put_object, tuples)
     end
 
     def set_copy_object_responses(tuples) do
