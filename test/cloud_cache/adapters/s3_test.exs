@@ -78,6 +78,25 @@ defmodule CloudCache.Adapters.S3Test do
     end
   end
 
+  describe "list_objects/2" do
+    test "returns list of objects on success" do
+      src_object = "test_#{:erlang.unique_integer()}.txt"
+
+      assert {:ok, _} = LocalStack.put_object(@bucket, src_object, "content", [])
+
+      assert {:ok,
+              %{
+                body: %{
+                  contents: contents
+                },
+                headers: headers
+              }} = S3.list_objects(@bucket, @options)
+
+      assert Enum.any?(contents, fn content -> content.key === src_object end)
+      assert headers
+    end
+  end
+
   describe "pre_sign/3" do
     test "returns a presigned URL and metadata on success" do
       assert {:ok,

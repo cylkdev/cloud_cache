@@ -197,6 +197,28 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
+  def list_objects(bucket, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket |> S3.list_objects(opts) |> perform(opts) do
+        {:ok, _} = result ->
+          result
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             bucket: bucket,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_list_objects_response(bucket, opts)
+    end
+  end
+
   @impl true
   @doc """
   ...
@@ -952,6 +974,10 @@ defmodule CloudCache.Adapters.S3 do
     defdelegate sandbox_put_object_response(bucket, object, body, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :put_object_response
+
+    defdelegate sandbox_list_objects_response(bucket, opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :list_objects_response
 
     defdelegate sandbox_copy_object_response(
                   dest_bucket,
