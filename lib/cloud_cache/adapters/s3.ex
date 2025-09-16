@@ -197,6 +197,10 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
+  @impl true
+  @doc """
+  ...
+  """
   def list_objects(bucket, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
