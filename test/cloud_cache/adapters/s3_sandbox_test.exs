@@ -92,6 +92,43 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
     end
   end
 
+  describe "list_objects/2" do
+    test "returns list of objects on success" do
+      S3Sandbox.set_list_objects_responses([
+        {@bucket,
+         fn ->
+           {:ok,
+            %{
+              body: %{
+                contents: [
+                  %{
+                    key: "test-object",
+                    last_modified: ~U[2025-08-30 01:00:00.000000Z],
+                    etag: "etag"
+                  }
+                ]
+              },
+              headers: %{}
+            }}
+         end}
+      ])
+
+      assert {:ok,
+              %{
+                body: %{
+                  contents: [
+                    %{
+                      key: "test-object",
+                      last_modified: ~U[2025-08-30 01:00:00.000000Z],
+                      etag: "etag"
+                    }
+                  ]
+                },
+                headers: %{}
+              }} = S3.list_objects(@bucket, @options)
+    end
+  end
+
   describe "copy_object/3" do
     test "returns object metadata on success" do
       S3Sandbox.set_copy_object_responses([

@@ -93,6 +93,41 @@ if Code.ensure_loaded?(SandboxRegistry) do
     end
 
     @doc """
+    Returns the registered response function for `list_objects/2` in the
+    context of the calling process.
+    """
+    def list_objects_response(bucket, opts \\ []) do
+      doc_examples =
+        [
+          "fn -> ...",
+          "fn (object) -> ...",
+          "fn (object, options) -> ..."
+        ]
+
+      func = find!(:list_objects, bucket, doc_examples)
+
+      case :erlang.fun_info(func)[:arity] do
+        0 ->
+          func.()
+
+        1 ->
+          func.(bucket)
+
+        2 ->
+          func.(bucket, opts)
+
+        _ ->
+          raise """
+          This function's signature is not supported: #{inspect(func)}
+
+          Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+          #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+          """
+      end
+    end
+
+    @doc """
     Returns the registered response function for `copy_object/5` in the
     context of the calling process.
     """
@@ -658,6 +693,10 @@ if Code.ensure_loaded?(SandboxRegistry) do
 
     def set_put_object_responses(tuples) do
       set_responses(:put_object, tuples)
+    end
+
+    def set_list_objects_responses(tuples) do
+      set_responses(:list_objects, tuples)
     end
 
     def set_copy_object_responses(tuples) do
