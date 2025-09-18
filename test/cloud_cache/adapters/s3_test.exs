@@ -1,6 +1,6 @@
 defmodule CloudCache.Adapters.S3Test do
   use ExUnit.Case, async: true
-  alias CloudCache.Adapters.S3.Testing.LocalStack
+  alias CloudCache.Adapters.S3.Testing.Local
   alias CloudCache.Adapters.S3
 
   @bucket "test-bucket"
@@ -10,7 +10,7 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns object metadata on success" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"
 
-      assert {:ok, _} = LocalStack.put_object(@bucket, dest_object, "content", [])
+      assert {:ok, _} = Local.put_object(@bucket, dest_object, "content", [])
 
       assert {:ok,
               %{
@@ -46,7 +46,7 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns object metadata on success" do
       src_object = "test_#{:erlang.unique_integer()}.txt"
 
-      assert {:ok, _} = LocalStack.put_object(@bucket, src_object, "content", [])
+      assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
 
       assert {:ok,
               %{
@@ -82,7 +82,7 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns list of objects on success" do
       src_object = "test_#{:erlang.unique_integer()}.txt"
 
-      assert {:ok, _} = LocalStack.put_object(@bucket, src_object, "content", [])
+      assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
 
       assert {:ok,
               %{
@@ -116,11 +116,11 @@ defmodule CloudCache.Adapters.S3Test do
       key = "test-object.txt"
 
       assert {:ok, %{body: %{upload_id: upload_id}}} =
-               LocalStack.create_multipart_upload(@bucket, key, [])
+               Local.create_multipart_upload(@bucket, key, [])
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
-      assert {:ok, _} = LocalStack.upload_part(@bucket, key, upload_id, 1, content, [])
+      assert {:ok, _} = Local.upload_part(@bucket, key, upload_id, 1, content, [])
 
       assert {:ok, %{body: %{parts: [%{part_number: 1, size: size, etag: etag}]}}} =
                S3.list_parts(@bucket, key, upload_id, @options)
@@ -166,7 +166,7 @@ defmodule CloudCache.Adapters.S3Test do
 
       content = (100 * 1024 * 1024) |> :crypto.strong_rand_bytes() |> Base.encode64()
 
-      assert {:ok, _} = LocalStack.put_object(@bucket, src_object, content, @options)
+      assert {:ok, _} = Local.put_object(@bucket, src_object, content, @options)
 
       assert {:ok,
               %{
@@ -194,7 +194,7 @@ defmodule CloudCache.Adapters.S3Test do
       dest_object = "test-object.txt"
 
       assert {:ok, %{body: %{upload_id: upload_id}}} =
-               LocalStack.create_multipart_upload(@bucket, dest_object, [])
+               Local.create_multipart_upload(@bucket, dest_object, [])
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
@@ -244,10 +244,10 @@ defmodule CloudCache.Adapters.S3Test do
 
       content_byte_size = byte_size(content)
 
-      assert {:ok, _} = LocalStack.put_object(@bucket, src_object, content, @options)
+      assert {:ok, _} = Local.put_object(@bucket, src_object, content, @options)
 
       assert {:ok, %{body: %{upload_id: upload_id}}} =
-               LocalStack.create_multipart_upload(@bucket, dest_object, [])
+               Local.create_multipart_upload(@bucket, dest_object, [])
 
       assert {:ok,
               %{

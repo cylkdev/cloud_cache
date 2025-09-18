@@ -3,9 +3,7 @@ defmodule CloudCache.Config do
 
   @app :cloud_cache
 
-  def app, do: @app
-
-  def mix_env do
-    Application.get_env(@app, :mix_env) || :test
+  def caches do
+    Application.get_env(@app, :caches) || []
   end
 end

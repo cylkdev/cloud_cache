@@ -22,11 +22,6 @@ defmodule CloudCache.Logger do
   end
 
   defp format_message(prefix, message) do
-    now =
-      DateTime.utc_now()
-      |> DateTime.truncate(:second)
-      |> DateTime.to_iso8601()
-
-    "[#{now}][#{prefix}] #{message}"
+    "[#{prefix}] #{message}"
   end
 end

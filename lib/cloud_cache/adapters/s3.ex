@@ -15,11 +15,13 @@ defmodule CloudCache.Adapters.S3 do
       end
   """
   alias ExAws.{Operation, S3}
-  alias CloudCache.Adapters.S3.{Multipart, XMLParser}
+  alias CloudCache.Adapters.S3.Multipart
 
   @behaviour CloudCache.Adapter
 
   @logger_prefix "CloudCache.Adapters.S3"
+
+  @mix_env_test Mix.env() === :test
 
   @one_minute_seconds 60
   @http_client CloudCache.Adapters.S3.HTTP
@@ -28,13 +30,13 @@ defmodule CloudCache.Adapters.S3 do
   @sandbox_host "s3.localhost.localstack.cloud"
   @sandbox_port 4566
   @default_retry_options [
-    max_attempts: if(Mix.env() === :test, do: 1, else: 10),
+    max_attempts: if(@mix_env_test, do: 1, else: 10),
     base_backoff_in_ms: 10,
     max_backoff_in_ms: 10_000
   ]
   @default_options [
     s3: [
-      sandbox_enabled: Mix.env() === :test,
+      sandbox_enabled: @mix_env_test,
       sandbox: [
         scheme: @sandbox_scheme,
         host: @sandbox_host,
@@ -42,8 +44,8 @@ defmodule CloudCache.Adapters.S3 do
       ],
       http_client: @http_client,
       region: @region,
-      access_key_id: if(Mix.env() === :test, do: "test", else: "<ACCESS_KEY_ID>"),
-      secret_access_key: if(Mix.env() === :test, do: "test", else: "<SECRET_ACCESS_KEY>"),
+      access_key_id: if(@mix_env_test, do: "test", else: "<ACCESS_KEY_ID>"),
+      secret_access_key: if(@mix_env_test, do: "test", else: "<SECRET_ACCESS_KEY>"),
       retries: @default_retry_options
     ]
   ]
@@ -79,7 +81,7 @@ defmodule CloudCache.Adapters.S3 do
       end)
 
     sandbox_opts =
-      if CloudCache.Config.mix_env() === :test do
+      if @mix_env_test do
         sandbox_opts = opts[:sandbox] || []
 
         case sandbox_opts[:endpoint] do
@@ -117,7 +119,6 @@ defmodule CloudCache.Adapters.S3 do
       )
       |> then(&Keyword.merge(sandbox_opts, &1))
       |> Keyword.take(@s3_config_keys)
-      |> dbg()
 
     ExAws.Config.new(:s3, overrides)
   end
@@ -172,7 +173,7 @@ defmodule CloudCache.Adapters.S3 do
            |> S3.put_object(object, body, opts)
            |> perform(opts) do
         {:ok, %{body: body} = response} ->
-          {:ok, %{response | body: maybe_parse_xml(body)}}
+          {:ok, %{response | body: body}}
 
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,
@@ -237,7 +238,7 @@ defmodule CloudCache.Adapters.S3 do
            |> S3.put_object_copy(dest_object, src_bucket, src_object, opts)
            |> perform(opts) do
         {:ok, %{body: body} = response} ->
-          {:ok, %{response | body: maybe_parse_xml(body)}}
+          {:ok, %{response | body: body}}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
@@ -843,16 +844,6 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
-  defp maybe_parse_xml(val) do
-    if is_binary(val) do
-      val
-      |> XMLParser.parse()
-      |> deserialize()
-    else
-      val
-    end
-  end
-
   defp deserialize_key(str) when is_binary(str), do: str |> normalize_key() |> String.to_atom()
   defp deserialize_key(term), do: term
 
@@ -1088,6 +1079,15 @@ defmodule CloudCache.Adapters.S3 do
       bucket: #{inspect(bucket)}
       object: #{inspect(object)}
       body: #{inspect(body)}
+      options: #{inspect(opts)}
+      """
+    end
+
+    defp sandbox_list_objects_response(bucket, opts) do
+      raise """
+      Cannot use #{inspect(__MODULE__)}.list_objects/2 outside of test.
+
+      bucket: #{inspect(bucket)}
       options: #{inspect(opts)}
       """
     end

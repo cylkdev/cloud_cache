@@ -1,4 +1,4 @@
-if Code.ensure_loaded?(SandboxRegistry) do
+if Mix.env() === :test do
   defmodule CloudCache.Adapters.S3.Testing.S3Sandbox do
     @moduledoc false
 
