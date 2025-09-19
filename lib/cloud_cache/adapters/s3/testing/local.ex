@@ -46,9 +46,14 @@ if Mix.env() === :test do
       bucket
       |> ExAws.S3.head_object(key, opts)
       |> perform(opts)
-      |> then(fn result ->
-        Process.sleep(10)
-        result
+      |> then(fn
+        {:ok, %{headers: headers}} ->
+          Process.sleep(10)
+          {:ok, headers}
+
+        {:error, reason} ->
+          Process.sleep(10)
+          {:error, reason}
       end)
     end
 
@@ -76,9 +81,14 @@ if Mix.env() === :test do
       bucket
       |> ExAws.S3.initiate_multipart_upload(key, opts)
       |> perform(opts)
-      |> then(fn result ->
-        Process.sleep(10)
-        result
+      |> then(fn
+        {:ok, %{body: body}} ->
+          Process.sleep(10)
+          {:ok, body}
+
+        {:error, reason} ->
+          Process.sleep(10)
+          {:error, reason}
       end)
     end
 

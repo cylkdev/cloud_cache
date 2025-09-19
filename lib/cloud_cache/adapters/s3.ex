@@ -129,9 +129,9 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.head_object("requis-developer-sandbox", "Bootstrap.png", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
+  CloudCache.Adapters.S3.head_object("myapp-bucket", "Bootstrap.png", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
 
-  CloudCache.Adapters.S3.head_object("requis-developer-sandbox", "does_not_exist", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
+  CloudCache.Adapters.S3.head_object("myapp-bucket", "does_not_exist", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
   """
   def head_object(bucket, object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
@@ -140,8 +140,8 @@ defmodule CloudCache.Adapters.S3 do
 
     if not sandbox? or sandbox_disabled?() do
       case bucket |> S3.head_object(object, opts) |> perform(opts) do
-        {:ok, _} = result ->
-          result
+        {:ok, %{headers: headers}} ->
+          {:ok, headers}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error, ErrorMessage.not_found("object not found", %{bucket: bucket, object: object})}
@@ -172,8 +172,8 @@ defmodule CloudCache.Adapters.S3 do
       case bucket
            |> S3.put_object(object, body, opts)
            |> perform(opts) do
-        {:ok, %{body: body} = response} ->
-          {:ok, %{response | body: body}}
+        {:ok, %{body: body}} ->
+          {:ok, body}
 
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,
@@ -209,8 +209,8 @@ defmodule CloudCache.Adapters.S3 do
 
     if not sandbox? or sandbox_disabled?() do
       case bucket |> S3.list_objects(opts) |> perform(opts) do
-        {:ok, _} = result ->
-          result
+        {:ok, %{body: %{contents: contents}}} ->
+          {:ok, contents}
 
         {:error, reason} ->
           {:error,
@@ -237,8 +237,8 @@ defmodule CloudCache.Adapters.S3 do
       case dest_bucket
            |> S3.put_object_copy(dest_object, src_bucket, src_object, opts)
            |> perform(opts) do
-        {:ok, %{body: body} = response} ->
-          {:ok, %{response | body: body}}
+        {:ok, %{body: body}} ->
+          {:ok, body}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
@@ -266,7 +266,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.pre_sign("requis-developer-sandbox", "example.zip", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "u7kT5uqe8DqCNOjFf0WMGTOliZWeoymiImZJEJ9K"])
+  CloudCache.Adapters.S3.pre_sign("myapp-bucket", "example.zip", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
   """
   def pre_sign(bucket, object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
@@ -304,8 +304,8 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.pre_sign_part("requis-developer-sandbox", "ChatGPT.dmg.zip", "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS", [{1, }], s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
-  curl -X PUT -T ./ChatGPT.dmg.zip "https://s3.us-west-1.amazonaws.com/requis-developer-sandbox/ChatGPT.dmg.zip?partNumber=1&uploadId=4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA25U36JCW7EXUUFIF%2F20250829%2Fus-west-1%2Fs3%2Faws4_request&X-Amz-Date=20250829T035317Z&X-Amz-Expires=60&X-Amz-SignedHeaders=host&X-Amz-Signature=75fdbddb331fb5b2e29d90f4bc3b64a7d31f176e59892751bb9c3ebe0aa4e990"
+  CloudCache.Adapters.S3.pre_sign_part("myapp-bucket", "example.zip", "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS", [{1, }], s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
+  curl -X PUT -T ./example.zip "https://s3.us-west-1.amazonaws.com/myapp-bucket/example.zip?partNumber=1&uploadId=4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA25U36JCW7EXUUFIF%2F20250829%2Fus-west-1%2Fs3%2Faws4_request&X-Amz-Date=20250829T035317Z&X-Amz-Expires=60&X-Amz-SignedHeaders=host&X-Amz-Signature=75fdbddb331fb5b2e29d90f4bc3b64a7d31f176e59892751bb9c3ebe0aa4e990"
   """
   def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
@@ -327,8 +327,8 @@ defmodule CloudCache.Adapters.S3 do
 
           {:error, %{message | details: details}}
 
-        res ->
-          res
+        {:ok, _} = response ->
+          response
       end
     else
       sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts)
@@ -337,19 +337,8 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.list_parts("requis-developer-sandbox", "ChatGPT.dmg.zip", "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "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"])
-  {:ok, %{
-    body: %{parts: []},
-    headers: %{
-      date: ["Fri, 29 Aug 2025 03:50:53 GMT"],
-      server: ["AmazonS3"],
-      content_type: ["application/xml"],
-      transfer_encoding: ["chunked"],
-      x_amz_id_2: ["mI7ICPDOYcJ5aZ0x2qLKRreQ2Eimjuz85RZmE1VKGx4gf84QSQrMQgJCIqV8Qp/nU3oywAGImOrIpPN91zSuxA4hezPxH9BmWCWEsqHNbHM="],
-      x_amz_request_id: ["FVAD9RR2480C7BTR"]
-    },
-    status_code: 200
-  }}
+  CloudCache.Adapters.S3.list_parts("myapp-bucket", "example.zip", "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
+  {:ok, []}
   """
   def list_parts(bucket, object, upload_id, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
@@ -372,8 +361,8 @@ defmodule CloudCache.Adapters.S3 do
       |> S3.list_parts(object, upload_id, list_parts_opts)
       |> perform(opts)
       |> then(fn
-        {:ok, _} = result ->
-          result
+        {:ok, %{body: %{parts: parts}}} ->
+          {:ok, parts}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
@@ -411,8 +400,8 @@ defmodule CloudCache.Adapters.S3 do
       |> S3.upload_part(object, upload_id, part_number, body, opts)
       |> perform(opts)
       |> then(fn
-        {:ok, _} = result ->
-          result
+        {:ok, %{headers: headers}} ->
+          {:ok, headers}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
@@ -450,22 +439,22 @@ defmodule CloudCache.Adapters.S3 do
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      with {:ok, describe_obj} <- head_object(src_bucket, src_object, opts),
-           {:ok, create_mpu} <- create_multipart_upload(dest_bucket, dest_object, opts),
+      with {:ok, info} <- head_object(src_bucket, src_object, opts),
+           {:ok, mpu} <- create_multipart_upload(dest_bucket, dest_object, opts),
            {:ok, parts} <-
              copy_parts(
                dest_bucket,
                dest_object,
                src_bucket,
                src_object,
-               create_mpu.body.upload_id,
-               describe_obj.headers.content_length,
+               mpu.upload_id,
+               info.content_length,
                opts
              ) do
         complete_multipart_upload(
           dest_bucket,
           dest_object,
-          create_mpu.body.upload_id,
+          mpu.upload_id,
           parts,
           opts
         )
@@ -533,15 +522,15 @@ defmodule CloudCache.Adapters.S3 do
           {
             :ok,
             results
-            |> Enum.sort(fn {_, pn1}, {_, pn2} -> pn1 < pn2 end)
-            |> Enum.map(fn {%{body: %{etag: etag}}, part_num} -> {part_num, etag} end)
+            |> Enum.sort(fn {_, n1}, {_, n2} -> n1 < n2 end)
+            |> Enum.map(fn {%{etag: etag}, n} -> {n, etag} end)
           }
 
         {:error, reasons} ->
           {
             :error,
             reasons
-            |> Enum.sort(fn {_, pn1}, {_, pn2} -> pn1 < pn2 end)
+            |> Enum.sort(fn {_, n1}, {_, n2} -> n1 < n2 end)
             |> Enum.map(fn {term, _} -> term end)
           }
       end)
@@ -651,8 +640,8 @@ defmodule CloudCache.Adapters.S3 do
       )
       |> perform(opts)
       |> then(fn
-        {:ok, _} = result ->
-          result
+        {:ok, %{body: body}} ->
+          {:ok, body}
 
         {:error, reason} ->
           {:error,
@@ -683,7 +672,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.complete_multipart_upload("requis-developer-sandbox", "ChatGPT.dmg.zip", "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS", [{1, "c3d60e2f28497d48df00208a04b1d053"}], s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "u7kT5uqe8DqCNOjFf0WMGTOliZWeoymiImZJEJ9K"])
+  CloudCache.Adapters.S3.complete_multipart_upload("myapp-bucket", "example.zip", "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS", [{1, "c3d60e2f28497d48df00208a04b1d053"}], s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
   {:ok, %{
     last_modified: "Fri, 29 Aug 2025 03:48:15 GMT",
     content_length: 56567269,
@@ -729,7 +718,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.abort_multipart_upload("requis-developer-sandbox", "ChatGPT.dmg.zip", "JfBuKAnK4OMHUHGvBfeqvukc5udqF2d7UT1Tc9OOCgLGXzEnCHjNLAjM_mZLYKnGMTzjRKR6PaCk8TaOgo.iyEOzxm3znfRhbt2wMwWYsAA_ojqZsbPIaUOdlxCBx5aH", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "u7kT5uqe8DqCNOjFf0WMGTOliZWeoymiImZJEJ9K"])
+  CloudCache.Adapters.S3.abort_multipart_upload("myapp-bucket", "example.zip", "JfBuKAnK4OMHUHGvBfeqvukc5udqF2d7UT1Tc9OOCgLGXzEnCHjNLAjM_mZLYKnGMTzjRKR6PaCk8TaOgo.iyEOzxm3znfRhbt2wMwWYsAA_ojqZsbPIaUOdlxCBx5aH", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
   {:ok, %{
     last_modified: "Fri, 29 Aug 2025 03:48:15 GMT",
     content_length: 56567269,
@@ -766,12 +755,12 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
-  CloudCache.Adapters.S3.create_multipart_upload("requis-developer-sandbox", "ChatGPT.dmg.zip", s3: [region: "us-west-1", access_key_id: "AKIA25U36JCW7EXUUFIF", secret_access_key: "u7kT5uqe8DqCNOjFf0WMGTOliZWeoymiImZJEJ9K"])
+  CloudCache.Adapters.S3.create_multipart_upload("myapp-bucket", "example.zip", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
   {:ok,
   %{
     body: %{
-      key: "ChatGPT.dmg.zip",
-      bucket: "requis-developer-sandbox",
+      key: "example.zip",
+      bucket: "myapp-bucket",
       upload_id: "4eT1xCDeyW5LEyr2Of45Ig3VNoVD.tbtAZXVVldYfdoMKeLKtS6SdOC9nxcT82rS51fPKuCsAk_Xde5RNsMxMc5gXGvxL4nqUBDnXnCA6DonGgUPHWsp_nWuHhwhkxqS"
     },
     headers: %{
@@ -795,8 +784,8 @@ defmodule CloudCache.Adapters.S3 do
       |> S3.initiate_multipart_upload(object, opts)
       |> perform(opts)
       |> then(fn
-        {:ok, _} = result ->
-          result
+        {:ok, %{body: body}} ->
+          {:ok, body}
 
         {:error, reason} ->
           {:error,

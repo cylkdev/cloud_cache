@@ -16,26 +16,20 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
          fn ->
            {:ok,
             %{
-              body: "",
-              headers: %{
-                content_length: 123,
-                content_type: "image/png",
-                etag: "abcdef1234567890",
-                last_modified: "Tue, 01 Jan 2021 00:00:00 GMT"
-              }
+              content_length: 123,
+              content_type: "image/png",
+              etag: "abcdef1234567890",
+              last_modified: "Tue, 01 Jan 2021 00:00:00 GMT"
             }}
          end}
       ])
 
       assert {:ok,
               %{
-                body: "",
-                headers: %{
-                  content_length: 123,
-                  content_type: "image/png",
-                  etag: "abcdef1234567890",
-                  last_modified: "Tue, 01 Jan 2021 00:00:00 GMT"
-                }
+                content_length: 123,
+                content_type: "image/png",
+                etag: "abcdef1234567890",
+                last_modified: "Tue, 01 Jan 2021 00:00:00 GMT"
               }} = S3.head_object(@bucket, @object, @options)
     end
 
@@ -70,14 +64,11 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
   describe "put_object/4" do
     test "successfully puts an object in the sandbox" do
       S3Sandbox.set_put_object_responses([
-        {~r|.*|, fn -> {:ok, %{body: %{"result" => "success"}}} end}
+        {~r|.*|, fn -> {:ok, %{result: "success"}} end}
       ])
 
-      body = "test-content"
-
-      assert {:ok, response} = S3.put_object(@bucket, @object, body, @options)
-
-      assert response.body == %{"result" => "success"}
+      assert {:ok, %{result: "success"}} =
+               S3.put_object(@bucket, @object, "test-content", @options)
     end
 
     test "returns an error when bucket is not found" do
@@ -85,10 +76,8 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
         {~r|.*|, fn -> {:error, %{message: "bucket not found"}} end}
       ])
 
-      body = "test-content"
-
       assert {:error, %{message: "bucket not found"}} =
-               S3.put_object(@non_existent_bucket, @object, body, @options)
+               S3.put_object(@non_existent_bucket, @object, "test-content", @options)
     end
   end
 
@@ -98,34 +87,24 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
         {@bucket,
          fn ->
            {:ok,
-            %{
-              body: %{
-                contents: [
-                  %{
-                    key: "test-object",
-                    last_modified: ~U[2025-08-30 01:00:00.000000Z],
-                    etag: "etag"
-                  }
-                ]
-              },
-              headers: %{}
-            }}
+            [
+              %{
+                key: "test-object",
+                last_modified: ~U[2025-08-30 01:00:00.000000Z],
+                etag: "etag"
+              }
+            ]}
          end}
       ])
 
       assert {:ok,
-              %{
-                body: %{
-                  contents: [
-                    %{
-                      key: "test-object",
-                      last_modified: ~U[2025-08-30 01:00:00.000000Z],
-                      etag: "etag"
-                    }
-                  ]
-                },
-                headers: %{}
-              }} = S3.list_objects(@bucket, @options)
+              [
+                %{
+                  key: "test-object",
+                  last_modified: ~U[2025-08-30 01:00:00.000000Z],
+                  etag: "etag"
+                }
+              ]} = S3.list_objects(@bucket, @options)
     end
   end
 
@@ -136,22 +115,16 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
          fn ->
            {:ok,
             %{
-              body: %{
-                last_modified: ~U[2025-08-30 01:00:00.000000Z],
-                etag: "etag"
-              },
-              headers: %{}
+              last_modified: ~U[2025-08-30 01:00:00.000000Z],
+              etag: "etag"
             }}
          end}
       ])
 
       assert {:ok,
               %{
-                body: %{
-                  last_modified: ~U[2025-08-30 01:00:00.000000Z],
-                  etag: "etag"
-                },
-                headers: %{}
+                last_modified: ~U[2025-08-30 01:00:00.000000Z],
+                etag: "etag"
               }} =
                S3.copy_object(@bucket, @object, @bucket, @object, @options)
     end
@@ -219,15 +192,12 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
       S3Sandbox.set_list_parts_responses([
         {@bucket,
          fn ->
-           {:ok, {[%{part_number: 1, size: 5_247_794, etag: "etag_123"}], 1}}
+           {:ok, [%{part_number: 1, size: 5_247_794, etag: "etag_123"}]}
          end}
       ])
 
-      assert {:ok, {parts, count}} =
+      assert {:ok, [%{part_number: 1, size: 5_247_794, etag: "etag_123"}]} =
                S3.list_parts(@bucket, @object, "upload_id_123", @options)
-
-      assert [%{part_number: 1, size: 5_247_794, etag: "etag_123"}] = parts
-      assert 1 = count
     end
 
     test "returns not_found error if object or upload ID is invalid" do
@@ -293,22 +263,16 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
          fn ->
            {:ok,
             %{
-              body: "",
-              headers: %{
-                content_length: 0,
-                etag: "etag"
-              }
+              content_length: 0,
+              etag: "etag"
             }}
          end}
       ])
 
       assert {:ok,
               %{
-                body: "",
-                headers: %{
-                  content_length: 0,
-                  etag: "etag"
-                }
+                content_length: 0,
+                etag: "etag"
               }} =
                S3.upload_part(
                  @bucket,

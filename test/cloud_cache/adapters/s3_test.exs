@@ -14,12 +14,10 @@ defmodule CloudCache.Adapters.S3Test do
 
       assert {:ok,
               %{
-                headers: %{
-                  content_length: content_length,
-                  content_type: content_type,
-                  etag: etag,
-                  last_modified: last_modified
-                }
+                content_length: content_length,
+                content_type: content_type,
+                etag: etag,
+                last_modified: last_modified
               }} = S3.head_object(@bucket, dest_object, @options)
 
       assert content_length >= 0
@@ -45,21 +43,10 @@ defmodule CloudCache.Adapters.S3Test do
   describe "copy_object/3" do
     test "returns object metadata on success" do
       src_object = "test_#{:erlang.unique_integer()}.txt"
-
       assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
 
-      assert {:ok,
-              %{
-                body: %{
-                  last_modified: last_modified,
-                  etag: etag
-                },
-                headers: headers
-              }} = S3.copy_object(@bucket, "dest_#{src_object}", @bucket, src_object, @options)
-
-      assert headers
-      assert %DateTime{} = last_modified
-      assert is_binary(etag)
+      assert {:ok, _xml} =
+               S3.copy_object(@bucket, "dest_#{src_object}", @bucket, src_object, @options)
     end
 
     test "returns not_found error if object does not exist" do
@@ -84,16 +71,8 @@ defmodule CloudCache.Adapters.S3Test do
 
       assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
 
-      assert {:ok,
-              %{
-                body: %{
-                  contents: contents
-                },
-                headers: headers
-              }} = S3.list_objects(@bucket, @options)
-
+      assert {:ok, contents} = S3.list_objects(@bucket, @options)
       assert Enum.any?(contents, fn content -> content.key === src_object end)
-      assert headers
     end
   end
 
@@ -115,14 +94,14 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns list of parts and count on success" do
       key = "test-object.txt"
 
-      assert {:ok, %{body: %{upload_id: upload_id}}} =
+      assert {:ok, %{upload_id: upload_id}} =
                Local.create_multipart_upload(@bucket, key, [])
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
       assert {:ok, _} = Local.upload_part(@bucket, key, upload_id, 1, content, [])
 
-      assert {:ok, %{body: %{parts: [%{part_number: 1, size: size, etag: etag}]}}} =
+      assert {:ok, [%{part_number: 1, size: size, etag: etag}]} =
                S3.list_parts(@bucket, key, upload_id, @options)
 
       assert size >= 0
@@ -193,18 +172,15 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns :ok on successful part copy" do
       dest_object = "test-object.txt"
 
-      assert {:ok, %{body: %{upload_id: upload_id}}} =
+      assert {:ok, %{upload_id: upload_id}} =
                Local.create_multipart_upload(@bucket, dest_object, [])
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
       assert {:ok,
               %{
-                body: _,
-                headers: %{
-                  content_length: _,
-                  etag: etag
-                }
+                content_length: _,
+                etag: etag
               }} =
                S3.upload_part(
                  @bucket,
@@ -246,15 +222,13 @@ defmodule CloudCache.Adapters.S3Test do
 
       assert {:ok, _} = Local.put_object(@bucket, src_object, content, @options)
 
-      assert {:ok, %{body: %{upload_id: upload_id}}} =
+      assert {:ok, %{upload_id: upload_id}} =
                Local.create_multipart_upload(@bucket, dest_object, [])
 
       assert {:ok,
               %{
-                body: %{
-                  last_modified: %DateTime{},
-                  etag: etag
-                }
+                last_modified: %DateTime{},
+                etag: etag
               }} =
                S3.copy_part(
                  @bucket,
@@ -291,7 +265,7 @@ defmodule CloudCache.Adapters.S3Test do
 
   describe "create_multipart_upload/3" do
     test "returns upload information on success" do
-      assert {:ok, %{body: %{bucket: @bucket, key: "test-object", upload_id: upload_id}}} =
+      assert {:ok, %{bucket: @bucket, key: "test-object", upload_id: upload_id}} =
                S3.create_multipart_upload(@bucket, "test-object", @options)
 
       assert is_binary(upload_id)
@@ -315,12 +289,12 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns file metadata on successful multipart upload completion" do
       dest_object = "test-object"
 
-      assert {:ok, %{body: %{upload_id: upload_id}}} =
+      assert {:ok, %{upload_id: upload_id}} =
                S3.create_multipart_upload(@bucket, dest_object, @options)
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
-      assert {:ok, %{headers: %{etag: etag}}} =
+      assert {:ok, %{etag: etag}} =
                S3.upload_part(
                  @bucket,
                  dest_object,
@@ -377,7 +351,7 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns OK tuple on successful abort" do
       key = "test-object"
 
-      assert {:ok, %{body: %{upload_id: upload_id}}} =
+      assert {:ok, %{upload_id: upload_id}} =
                S3.create_multipart_upload(@bucket, key, @options)
 
       assert {:ok,
