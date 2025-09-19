@@ -690,8 +690,8 @@ defmodule CloudCache.Adapters.S3 do
       |> S3.complete_multipart_upload(object, upload_id, validate_parts!(parts))
       |> perform(opts)
       |> then(fn
-        {:ok, _} = result ->
-          result
+        {:ok, %{body: body}} ->
+          {:ok, body}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error,

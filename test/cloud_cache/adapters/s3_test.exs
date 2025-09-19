@@ -147,24 +147,12 @@ defmodule CloudCache.Adapters.S3Test do
 
       assert {:ok, _} = Local.put_object(@bucket, src_object, content, @options)
 
-      assert {:ok,
-              %{
-                body: %{
-                  location: _,
-                  key: _,
-                  bucket: _,
-                  etag: _
-                },
-                headers: %{
-                  date: _,
-                  server: _,
-                  content_type: _,
-                  x_amz_id_2: _,
-                  x_amz_request_id: _,
-                  x_amz_server_side_encryption: _
-                },
-                status_code: 200
-              }} = S3.copy_object_multipart(@bucket, dest_object, @bucket, src_object, @options)
+      assert {:ok, %{
+        location: _,
+        key: _,
+        bucket: _,
+        etag: _
+      }} = S3.copy_object_multipart(@bucket, dest_object, @bucket, src_object, @options)
     end
   end
 
@@ -304,15 +292,12 @@ defmodule CloudCache.Adapters.S3Test do
                  @options
                )
 
-      assert {:ok,
-              %{
-                body: %{
-                  etag: etag,
-                  bucket: @bucket,
-                  key: key,
-                  location: location
-                }
-              }} =
+      assert {:ok,  %{
+        etag: etag,
+        bucket: @bucket,
+        key: key,
+        location: location
+      }} =
                S3.complete_multipart_upload(
                  @bucket,
                  dest_object,
