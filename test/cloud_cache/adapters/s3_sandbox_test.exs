@@ -64,11 +64,35 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
   describe "put_object/4" do
     test "successfully puts an object in the sandbox" do
       S3Sandbox.set_put_object_responses([
-        {~r|.*|, fn -> {:ok, %{result: "success"}} end}
+        {~r|.*|, fn -> {:ok, %{
+          content_length: "0",
+          date: "Fri, 19 Sep 2025 18:40:13 GMT",
+          etag: "9725d5a30c6130db8e169c4d9560ded7",
+          server: "TwistedWeb/24.3.0",
+          x_amz_checksum_crc64nvme: "GMhJTU/CB1I=",
+          x_amz_checksum_type: "FULL_OBJECT",
+          x_amz_id_2:
+            "s9lzHYrFp76ZVxRcpX9+5cjAnEH2ROuNkd2BHfIa6UkFVdtjf5mKR3/eTPFvsiP/XV/VLi31234=",
+          x_amz_request_id: "b255ad52-f548-4bb5-ab97-6dd2e5982a8d",
+          x_amz_server_side_encryption: "AES256",
+          x_localstack: "true"
+        }} end}
       ])
 
-      assert {:ok, %{result: "success"}} =
-               S3.put_object(@bucket, @object, "test-content", @options)
+      assert {:ok,
+              %{
+                content_length: "0",
+                date: "Fri, 19 Sep 2025 18:40:13 GMT",
+                etag: "9725d5a30c6130db8e169c4d9560ded7",
+                server: "TwistedWeb/24.3.0",
+                x_amz_checksum_crc64nvme: "GMhJTU/CB1I=",
+                x_amz_checksum_type: "FULL_OBJECT",
+                x_amz_id_2:
+                  "s9lzHYrFp76ZVxRcpX9+5cjAnEH2ROuNkd2BHfIa6UkFVdtjf5mKR3/eTPFvsiP/XV/VLi31234=",
+                x_amz_request_id: "b255ad52-f548-4bb5-ab97-6dd2e5982a8d",
+                x_amz_server_side_encryption: "AES256",
+                x_localstack: "true"
+              }} = S3.put_object(@bucket, @object, "test-content", @options)
     end
 
     test "returns an error when bucket is not found" do

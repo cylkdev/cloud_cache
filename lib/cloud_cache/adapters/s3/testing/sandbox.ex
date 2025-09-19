@@ -7,7 +7,6 @@ if Mix.env() === :test do
     @disabled "disabled"
     @sleep 10
     @keys :unique
-
     @doc """
     Starts the sandbox.
     """

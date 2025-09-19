@@ -172,8 +172,8 @@ defmodule CloudCache.Adapters.S3 do
       case bucket
            |> S3.put_object(object, body, opts)
            |> perform(opts) do
-        {:ok, %{body: body}} ->
-          {:ok, body}
+        {:ok, %{headers: headers}} ->
+          {:ok, headers}
 
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,

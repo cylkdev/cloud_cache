@@ -61,9 +61,14 @@ if Mix.env() === :test do
       bucket
       |> ExAws.S3.put_object(key, content, opts)
       |> perform(opts)
-      |> then(fn result ->
-        Process.sleep(10)
-        result
+      |> then(fn
+        {:ok, %{headers: headers}} ->
+          Process.sleep(10)
+          {:ok, Map.new(headers)}
+
+        {:error, reason} ->
+          Process.sleep(10)
+          {:error, reason}
       end)
     end
 
