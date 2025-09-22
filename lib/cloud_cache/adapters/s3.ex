@@ -238,9 +238,16 @@ defmodule CloudCache.Adapters.S3 do
         {:ok, %{body: body}} ->
           {:ok, body}
 
-        {:error, reason} ->
+        {:error, %{status: status}} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("object not found", %{
+             bucket: bucket,
+             object: object,
+           })}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
              bucket: bucket,
              object: object,
              reason: reason
