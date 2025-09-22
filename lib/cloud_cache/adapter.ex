@@ -36,6 +36,13 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
+
+  @callback delete_object(
+              bucket :: bucket(),
+              object :: object(),
+              opts :: options()
+            ) :: {:ok, term()} | {:error, term()}
+
   @callback pre_sign(
               bucket :: bucket(),
               object :: object(),
@@ -130,6 +137,10 @@ defmodule CloudCache.Adapter do
 
   def put_object(adapter, bucket, object, body, opts \\ []) do
     adapter.copy_object(bucket, object, body, opts)
+  end
+
+  def delete_object(adapter, bucket, object, opts \\ []) do
+    adapter.delete_object(bucket, object, opts)
   end
 
   def copy_object(adapter, dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do

@@ -76,6 +76,16 @@ defmodule CloudCache.Adapters.S3Test do
     end
   end
 
+  describe "delete_object/3" do
+    test "returns :ok on successful object deletion" do
+      src_object = "test_#{:erlang.unique_integer()}.txt"
+
+      assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
+
+      assert {:ok, _} = S3.delete_object(@bucket, src_object, @options)
+    end
+  end
+
   describe "pre_sign/3" do
     test "returns a presigned URL and metadata on success" do
       assert {:ok,

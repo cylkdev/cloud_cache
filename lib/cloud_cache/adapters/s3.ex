@@ -266,6 +266,33 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   @doc """
+  ...
+  """
+  def delete_object(bucket, object, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket |> S3.delete_object(object, opts) |> perform(opts) do
+        {:ok, %{headers: headers}} ->
+          {:ok, headers}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             bucket: bucket,
+             object: object,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_delete_object_response(bucket, object, opts)
+    end
+  end
+
+  @impl true
+  @doc """
   CloudCache.Adapters.S3.pre_sign("myapp-bucket", "example.zip", s3: [region: "us-west-1", access_key_id: "XXX", secret_access_key: "XXX"])
   """
   def pre_sign(bucket, object, opts \\ []) do
@@ -962,6 +989,10 @@ defmodule CloudCache.Adapters.S3 do
     defdelegate sandbox_list_objects_response(bucket, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :list_objects_response
+
+    defdelegate sandbox_delete_object_response(bucket, object, opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :delete_object_response
 
     defdelegate sandbox_copy_object_response(
                   dest_bucket,
