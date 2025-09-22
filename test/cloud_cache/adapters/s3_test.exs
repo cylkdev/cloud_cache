@@ -368,4 +368,19 @@ defmodule CloudCache.Adapters.S3Test do
                S3.abort_multipart_upload(@bucket, "nonexistent-object", "upload_id", @options)
     end
   end
+
+  describe "list_multipart_uploads/2" do
+    test "returns list of multipart uploads on success" do
+      dest_object = "test-object"
+
+      assert {:ok, %{upload_id: upload_id}} =
+               S3.create_multipart_upload(@bucket, dest_object, @options)
+
+      assert {:ok,
+              response} =
+               S3.list_multipart_uploads(@bucket, @options)
+
+      assert Enum.any?(response, fn upload -> upload.key === dest_object and upload.upload_id === upload_id end)
+    end
+  end
 end

@@ -72,6 +72,11 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
+  @callback list_multipart_uploads(
+              bucket :: bucket(),
+              opts :: options()
+            ) :: {:ok, term()} | {:error, term()}
+
   @callback complete_multipart_upload(
               bucket :: bucket(),
               object :: object(),
@@ -148,6 +153,10 @@ defmodule CloudCache.Adapter do
 
   def upload_part(adapter, bucket, object, upload_id, part_number, body, opts \\ []) do
     adapter.upload_part(bucket, object, upload_id, part_number, body, opts)
+  end
+
+  def list_multipart_uploads(adapter, bucket, opts \\ []) do
+    adapter.list_multipart_uploads(bucket, opts)
   end
 
   def list_parts(adapter, bucket, object, upload_id, opts \\ []) do
