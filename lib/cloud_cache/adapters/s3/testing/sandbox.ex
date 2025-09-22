@@ -165,6 +165,10 @@ if Mix.env() === :test do
       end
     end
 
+    @doc """
+    Returns the registered response function for `copy_object/5` in the
+    context of the calling process.
+    """
     def copy_object_response(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
       doc_examples =
         [
