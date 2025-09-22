@@ -36,6 +36,12 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
+  @callback get_object(
+              bucket :: bucket(),
+              object :: object(),
+              opts :: options()
+            ) :: {:ok, term()} | {:error, term()}
+
   @callback pre_sign(
               bucket :: bucket(),
               object :: object(),
@@ -138,6 +144,10 @@ defmodule CloudCache.Adapter do
 
   def list_objects(adapter, bucket, opts \\ []) do
     adapter.list_objects(bucket, opts)
+  end
+
+  def get_object(adapter, bucket, object, opts \\ []) do
+    adapter.get_object(bucket, object, opts)
   end
 
   # Multipart Upload API

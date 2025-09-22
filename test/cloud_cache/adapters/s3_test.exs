@@ -76,6 +76,29 @@ defmodule CloudCache.Adapters.S3Test do
     end
   end
 
+  describe "get_object/3" do
+    test "returns object content on success" do
+      src_object = "test_#{:erlang.unique_integer()}.txt"
+      assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
+
+      assert {:ok, content} = S3.get_object(@bucket, src_object, @options)
+      assert content === "content"
+    end
+
+    test "returns not_found error if object does not exist" do
+      assert {:error,
+              %ErrorMessage{
+                code: :not_found,
+                message: "object not found",
+                details: %{
+                  bucket: "test-bucket",
+                  object: "nonexistent-object"
+                }
+              }} =
+               S3.get_object(@bucket, "nonexistent-object", @options)
+    end
+  end
+
   describe "pre_sign/3" do
     test "returns a presigned URL and metadata on success" do
       assert {:ok,

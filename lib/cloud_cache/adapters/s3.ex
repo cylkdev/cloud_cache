@@ -228,6 +228,33 @@ defmodule CloudCache.Adapters.S3 do
   @doc """
   ...
   """
+  def get_object(bucket, object, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket |> S3.get_object(object, opts) |> perform(opts) do
+        {:ok, %{body: body}} ->
+          {:ok, body}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.not_found("object not found", %{
+             bucket: bucket,
+             object: object,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_get_object_response(bucket, object, opts)
+    end
+  end
+
+  @impl true
+  @doc """
+  ...
+  """
   def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
@@ -962,6 +989,10 @@ defmodule CloudCache.Adapters.S3 do
     defdelegate sandbox_list_objects_response(bucket, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :list_objects_response
+
+    defdelegate sandbox_get_object_response(bucket, object, opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :get_object_response
 
     defdelegate sandbox_copy_object_response(
                   dest_bucket,
