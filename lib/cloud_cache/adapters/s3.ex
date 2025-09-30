@@ -20,49 +20,27 @@ defmodule CloudCache.Adapters.S3 do
   @behaviour CloudCache.Adapter
 
   @logger_prefix "CloudCache.Adapters.S3"
-
-  @mix_env_test Mix.env() === :test
-
   @one_minute_seconds 60
-  @http_client CloudCache.Adapters.S3.HTTP
-  @region "us-west-1"
-  @sandbox_scheme "http://"
-  @sandbox_host "s3.localhost.localstack.cloud"
-  @sandbox_port 4566
+
+  @localhost_scheme "http://"
+  @localhost_host "s3.localhost.localstack.cloud"
+  @localhost_port 4566
+
   @default_retry_options [
-    max_attempts: if(@mix_env_test, do: 1, else: 10),
+    max_attempts: if(Mix.env() === :test, do: 1, else: 10),
     base_backoff_in_ms: 10,
     max_backoff_in_ms: 10_000
   ]
-  @default_options [
-    s3: [
-      sandbox_enabled: @mix_env_test,
-      sandbox: [
-        scheme: @sandbox_scheme,
-        host: @sandbox_host,
-        port: @sandbox_port
-      ],
-      http_client: @http_client,
-      region: @region,
-      access_key_id: if(@mix_env_test, do: "test", else: "<ACCESS_KEY_ID>"),
-      secret_access_key: if(@mix_env_test, do: "test", else: "<SECRET_ACCESS_KEY>"),
-      retries: @default_retry_options
-    ]
+
+  @default_s3_options [
+    sandbox_enabled: Mix.env() === :test,
+    local_stack_enabled: Mix.env() === :test,
+    http_client: CloudCache.Adapters.S3.HTTP,
+    region: "us-west-1",
+    retries: @default_retry_options
   ]
 
-  @s3_config_keys [
-    :port,
-    :scheme,
-    :host,
-    :http_client,
-    :access_key_id,
-    :secret_access_key,
-    :region,
-    :json_codec,
-    :retries,
-    :normalize_path,
-    :require_imds_v2
-  ]
+  @default_options [s3: @default_s3_options]
 
   # 64 MiB (67_108_864 bytes)
   @sixty_four_mib 64 * 1_024 * 1_024
@@ -70,57 +48,88 @@ defmodule CloudCache.Adapters.S3 do
   @doc """
   Returns the S3 configuration as a map.
 
-  CloudCache.Adapters.S3.config()
+  ### Examples
+
+      iex> CloudCache.Adapters.S3.config()
   """
   def config(opts \\ []) do
-    opts =
-      Keyword.merge(@default_options, opts, fn
-        _k, v1, v2 when is_list(v2) -> Keyword.merge(v1, v2)
-        _k, v1, v2 when is_map(v2) -> Map.merge(v1, v2)
-        _, _v1, v2 -> v2
-      end)
+    s3_opts = Keyword.merge(@default_s3_options, opts[:s3] || [])
 
-    sandbox_opts =
-      if @mix_env_test do
-        sandbox_opts = opts[:sandbox] || []
-
-        case sandbox_opts[:endpoint] do
-          nil ->
-            [
-              scheme: uri_scheme(sandbox_opts[:scheme] || @sandbox_scheme),
-              host: sandbox_opts[:host] || @sandbox_host,
-              port: sandbox_opts[:port] || @sandbox_port
-            ]
-
-          uri ->
-            uri = URI.parse(uri)
-            scheme = uri_scheme(uri.scheme || @sandbox_scheme)
-            host = uri.host || @sandbox_host
-            port = uri.port || @sandbox_port
-
-            [
-              scheme: scheme,
-              host: host,
-              port: port
-            ]
-        end
-      else
-        []
-      end
+    s3_endpoint_opts = s3_endpoint_options(s3_opts)
 
     overrides =
-      :ex_aws
-      |> Application.get_all_env()
-      |> Keyword.merge(opts[:s3] || [])
+      s3_opts
       |> Keyword.update(
         :retries,
         @default_retry_options,
         &Keyword.merge(@default_retry_options, &1)
       )
-      |> then(&Keyword.merge(sandbox_opts, &1))
-      |> Keyword.take(@s3_config_keys)
+      |> Keyword.merge(s3_endpoint_opts)
+      |> Keyword.take([
+        :access_key_id,
+        :host,
+        :http_client,
+        :json_codec,
+        :normalize_path,
+        :port,
+        :region,
+        :require_imds_v2,
+        :retries,
+        :secret_access_key,
+        :scheme
+      ])
 
     ExAws.Config.new(:s3, overrides)
+  end
+
+  defp s3_endpoint_options(opts) do
+    if opts[:local_stack_enabled] do
+      [
+        scheme: @localhost_scheme,
+        host: @localhost_host,
+        port: @localhost_port,
+        access_key_id: "test",
+        secret_access_key: "test"
+      ]
+    else
+      creds = aws_credentials_opts(opts)
+
+      base =
+        case opts[:endpoint] do
+          nil ->
+            []
+
+          endpoint ->
+            uri = URI.parse(endpoint)
+
+            [
+              scheme: uri_scheme(uri.scheme),
+              host: uri.host,
+              port: uri.port
+            ]
+        end
+
+      Keyword.merge(base, creds)
+    end
+  end
+
+  defp aws_credentials_opts(opts) do
+    profile = Keyword.get(opts, :profile, "cloud_cache")
+
+    [
+      access_key_id: [
+        {:awscli, profile, 30},
+        :instance_role,
+        {:system, "AWS_ACCESS_KEY_ID"},
+        "<AWS_ACCESS_KEY_ID>"
+      ],
+      secret_access_key: [
+        {:awscli, profile, 30},
+        :instance_role,
+        {:system, "AWS_SECRET_ACCESS_KEY"},
+        "<AWS_SECRET_ACCESS_KEY>"
+      ]
+    ]
   end
 
   defp uri_scheme("https" <> _), do: "https://"
@@ -1072,6 +1081,8 @@ defmodule CloudCache.Adapters.S3 do
     defp sandbox_list_buckets_response(opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.list_buckets/1 outside of test.
+
+      options: #{inspect(opts)}
       """
     end
 
