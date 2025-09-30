@@ -7,7 +7,6 @@ defmodule CloudCache do
 
   @default_adapter CloudCache.Adapters.S3
   @default_name __MODULE__
-
   def start_link(caches, opts \\ []) do
     Supervisor.start_link(__MODULE__, caches, Keyword.put_new(opts, :name, @default_name))
   end
@@ -52,6 +51,10 @@ defmodule CloudCache do
   end
 
   # Non-Multipart Upload API
+
+  def list_buckets(opts \\ []) do
+    adapter(opts).list_buckets(opts)
+  end
 
   def head_object(bucket, object, opts \\ []) do
     adapter(opts).head_object(bucket, object, opts)

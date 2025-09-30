@@ -9,6 +9,30 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
   @object "test-object"
   @options [s3: [sandbox_enabled: true]]
 
+  describe "list_objects/1" do
+    test "returns all buckets" do
+      S3Sandbox.set_list_buckets_responses([
+        fn ->
+          {:ok,
+           [
+             %{
+               name: "test-bucket",
+               creation_date: ~U[2025-09-30 20:48:01.000Z]
+             }
+           ]}
+        end
+      ])
+
+      assert {:ok,
+              [
+                %{
+                  name: "test-bucket",
+                  creation_date: ~U[2025-09-30 20:48:01.000Z]
+                }
+              ]} = S3.list_buckets(@options)
+    end
+  end
+
   describe "head_object/3" do
     test "returns object metadata on success" do
       S3Sandbox.set_head_object_responses([

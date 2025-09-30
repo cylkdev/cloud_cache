@@ -6,6 +6,19 @@ defmodule CloudCache.Adapters.S3Test do
   @bucket "test-bucket"
   @options [s3: [sandbox_enabled: false]]
 
+  describe "list_buckets/3" do
+    test "returns all buckets" do
+      assert {:ok,
+              [
+                %{
+                  name: "test-bucket",
+                  # ~U[2025-09-30 20:48:01.000Z]
+                  creation_date: _
+                }
+              ]} = S3.list_buckets(@options)
+    end
+  end
+
   describe "head_object/3" do
     test "returns object metadata on success" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"

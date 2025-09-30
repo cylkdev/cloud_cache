@@ -10,6 +10,8 @@ defmodule CloudCache.Adapter do
 
   @callback supervisor_children(opts :: options()) :: list()
 
+  @callback list_buckets(opts :: options()) :: {:ok, term()} | {:error, term()}
+
   @callback head_object(
               bucket :: bucket(),
               object :: object(),

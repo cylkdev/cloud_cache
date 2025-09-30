@@ -128,6 +128,32 @@ defmodule CloudCache.Adapters.S3 do
   defp uri_scheme(_), do: "https://"
 
   @impl true
+  def list_buckets(opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case opts
+           |> Keyword.take([:host, :port, :region, :scheme, :headers, :timeout])
+           |> S3.list_buckets()
+           |> perform(opts) do
+        {:ok, %{body: body}} ->
+          {:ok, body.buckets}
+
+        {:error, %{status: status} = response} when status in 400..499 ->
+          {:error, ErrorMessage.not_found("buckets not found", %{response: response})}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{reason: reason})}
+      end
+    else
+      sandbox_list_buckets_response(opts)
+    end
+  end
+
+  @impl true
   def head_object(bucket, object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
@@ -935,6 +961,10 @@ defmodule CloudCache.Adapters.S3 do
   if Mix.env() === :test do
     defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Testing.S3Sandbox
 
+    defdelegate sandbox_list_buckets_response(opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :list_buckets_response
+
     defdelegate sandbox_head_object_response(bucket, object, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :head_object_response
@@ -1038,6 +1068,12 @@ defmodule CloudCache.Adapters.S3 do
       as: :create_multipart_upload_response
   else
     defp sandbox_disabled?, do: true
+
+    defp sandbox_list_buckets_response(opts) do
+      raise """
+      Cannot use #{inspect(__MODULE__)}.list_buckets/1 outside of test.
+      """
+    end
 
     defp sandbox_head_object_response(bucket, object, opts) do
       raise """

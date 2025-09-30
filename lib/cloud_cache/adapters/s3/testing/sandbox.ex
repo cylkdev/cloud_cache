@@ -50,6 +50,37 @@ if Mix.env() === :test do
     end
 
     @doc """
+    Returns the registered response function for `list_buckets/1` in the
+    context of the calling process.
+    """
+    def list_buckets_response(opts \\ []) do
+      doc_examples =
+        [
+          "fn -> ...",
+          "fn (options) -> ..."
+        ]
+
+      func = find!(:list_buckets, "*", doc_examples)
+
+      case :erlang.fun_info(func)[:arity] do
+        0 ->
+          func.()
+
+        1 ->
+          func.(opts)
+
+        _ ->
+          raise """
+          This function's signature is not supported: #{inspect(func)}
+
+          Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+          #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+          """
+      end
+    end
+
+    @doc """
     Returns the registered response function for `get_object/3` in the
     context of the calling process.
     """
@@ -721,6 +752,10 @@ if Mix.env() === :test do
           end}
         ])
     """
+    def set_list_buckets_responses(funcs) do
+      set_responses(:list_buckets, Enum.map(funcs, fn f -> {"*", f} end))
+    end
+
     def set_head_object_responses(tuples) do
       set_responses(:head_object, tuples)
     end
