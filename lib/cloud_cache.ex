@@ -61,6 +61,10 @@ defmodule CloudCache do
     adapter(opts).pre_sign(bucket, object, opts)
   end
 
+  def get_object(bucket, object, opts \\ []) do
+    adapter(opts).get_object(bucket, object, opts)
+  end
+
   def put_object(bucket, object, body, opts \\ []) do
     adapter(opts).put_object(bucket, object, body, opts)
   end
