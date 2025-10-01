@@ -95,6 +95,11 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
+  @callback list_multipart_uploads(
+              bucket :: bucket(),
+              opts :: options()
+            ) :: {:ok, term()} | {:error, term()}
+
   @callback copy_object_multipart(
               dest_bucket :: bucket(),
               dest_object :: object(),

@@ -489,6 +489,32 @@ defmodule CloudCache.Adapters.S3 do
   @doc """
   ...
   """
+  def list_multipart_uploads(bucket, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket |> S3.list_multipart_uploads(opts) |> perform(opts) do
+        {:ok, %{body: %{uploads: uploads}}} ->
+          {:ok, uploads}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             bucket: bucket,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_list_multipart_uploads_response(bucket, opts)
+    end
+  end
+
+  @impl true
+  @doc """
+  ...
+  """
   def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
@@ -1022,6 +1048,10 @@ defmodule CloudCache.Adapters.S3 do
     defdelegate sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :pre_sign_part_response
+
+    defdelegate sandbox_list_multipart_uploads_response(bucket, opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :list_multipart_uploads_response
 
     defdelegate sandbox_copy_object_multipart_response(
                   dest_bucket,
