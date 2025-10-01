@@ -513,6 +513,51 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
     end
   end
 
+  describe "list_multipart_uploads/2" do
+    test "returns list of multipart uploads on success" do
+      S3Sandbox.set_list_multipart_uploads_responses([
+        {@bucket,
+         fn ->
+           {:ok,
+            [
+              %{
+                bucket: @bucket,
+                key: @object,
+                upload_id: "upload_id_123"
+              }
+            ]}
+         end}
+      ])
+
+      assert {:ok, response} =
+               S3.list_multipart_uploads(@bucket, @options)
+
+      assert Enum.any?(response, fn upload ->
+               upload.key === @object and upload.upload_id === "upload_id_123"
+             end)
+    end
+
+    test "returns service_unavailable error on failure to list multipart uploads" do
+      S3Sandbox.set_list_multipart_uploads_responses([
+        {@bucket,
+         fn ->
+           {:error,
+            %ErrorMessage{
+              code: :service_unavailable,
+              message: "service temporarily unavailable"
+            }}
+         end}
+      ])
+
+      assert {:error,
+              %ErrorMessage{
+                code: :service_unavailable,
+                message: "service temporarily unavailable"
+              }} =
+               S3.list_multipart_uploads(@bucket, @options)
+    end
+  end
+
   describe "complete_multipart_upload/5" do
     test "returns file metadata on successful multipart upload completion" do
       S3Sandbox.set_complete_multipart_upload_responses([
