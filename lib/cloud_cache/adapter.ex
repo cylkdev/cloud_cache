@@ -146,8 +146,8 @@ defmodule CloudCache.Adapter do
     adapter.pre_sign(bucket, object, opts)
   end
 
-  def get_object(adapter, bucket, object, body, opts \\ []) do
-    adapter.get_object(bucket, object, body, opts)
+  def get_object(adapter, bucket, object, opts \\ []) do
+    adapter.get_object(bucket, object, opts)
   end
 
   def put_object(adapter, bucket, object, body, opts \\ []) do
