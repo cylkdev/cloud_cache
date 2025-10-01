@@ -214,6 +214,59 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
     end
   end
 
+  describe "delete_object/3" do
+    test "returns :ok on successful object deletion" do
+      S3Sandbox.set_delete_object_responses([
+        {@bucket,
+         fn ->
+           {:ok,
+            %{
+              status_code: 204,
+              body: "",
+              headers: [
+                {"x-amz-id-2", "some-opaque-id"},
+                {"x-amz-request-id", "req-id-12345"},
+                {"date", "Fri, 18 Aug 2023 10:32:49 GMT"},
+                {"server", "AmazonS3"}
+              ]
+            }}
+         end}
+      ])
+
+      src_object = "test_#{:erlang.unique_integer()}.txt"
+
+      assert {:ok, _} = S3.delete_object(@bucket, src_object, @options)
+    end
+
+    test "returns service_unavailable error on failure to delete object" do
+      S3Sandbox.set_delete_object_responses([
+        {@bucket,
+         fn ->
+           {:error,
+            %ErrorMessage{
+              code: :service_unavailable,
+              message: "service unavailable",
+              details: %{
+                bucket: @bucket,
+                object: @object
+              }
+            }}
+         end}
+      ])
+
+      assert {:error,
+              %ErrorMessage{
+                code: :service_unavailable,
+                message: "service unavailable",
+                details: %{
+                  bucket: @bucket,
+                  object: @object
+                }
+              }} =
+               S3.delete_object(@bucket, @object, @options)
+    end
+  end
+
   describe "pre_sign/3" do
     test "returns a presigned URL and metadata on success" do
       S3Sandbox.set_pre_sign_responses([
