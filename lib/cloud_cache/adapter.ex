@@ -171,6 +171,10 @@ defmodule CloudCache.Adapter do
     adapter.list_parts(bucket, object, upload_id, opts)
   end
 
+  def list_multipart_uploads(adapter, bucket, opts \\ []) do
+    adapter.list_multipart_uploads(bucket, opts)
+  end
+
   def complete_multipart_upload(adapter, bucket, object, upload_id, parts, opts \\ []) do
     adapter.complete_multipart_upload(bucket, object, upload_id, parts, opts)
   end
