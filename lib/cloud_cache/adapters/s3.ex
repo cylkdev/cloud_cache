@@ -269,6 +269,33 @@ defmodule CloudCache.Adapters.S3 do
   @doc """
   ...
   """
+  def delete_object(bucket, object, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket |> S3.delete_object(object, opts) |> perform(opts) do
+        {:ok, %{headers: headers}} ->
+          {:ok, headers}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             bucket: bucket,
+             object: object,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_delete_object_response(bucket, object, opts)
+    end
+  end
+
+  @impl true
+  @doc """
+  ...
+  """
   def list_objects(bucket, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
@@ -981,6 +1008,10 @@ defmodule CloudCache.Adapters.S3 do
     defdelegate sandbox_get_object_response(bucket, object, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
       as: :get_object_response
+
+    defdelegate sandbox_delete_object_response(bucket, object, opts),
+      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      as: :delete_object_response
 
     defdelegate sandbox_put_object_response(bucket, object, body, opts),
       to: CloudCache.Adapters.S3.Testing.S3Sandbox,
