@@ -20,6 +20,7 @@ defmodule CloudCache.Adapters.S3 do
   @behaviour CloudCache.Adapter
 
   @logger_prefix "CloudCache.Adapters.S3"
+
   @one_minute_seconds 60
 
   @localhost_scheme "http://"
@@ -40,10 +41,47 @@ defmodule CloudCache.Adapters.S3 do
     retries: @default_retry_options
   ]
 
-  @default_options [s3: @default_s3_options]
+  @default_options [
+    s3: @default_s3_options
+  ]
+
+  @finch CloudCache.Adapters.S3.Finch
 
   # 64 MiB (67_108_864 bytes)
   @sixty_four_mib 64 * 1_024 * 1_024
+
+  @impl true
+  def supervisor_child_spec(opts) do
+    [
+      {
+        Finch,
+        name: @finch,
+        pools:
+          Keyword.get(opts, :pools, %{
+            default: [
+              # max connections per pool
+              size: 32,
+              # number of pools (shards)
+              count: 8,
+              # clean up idle per-host pools and connections
+              # pool terminates if unused for 2m
+              pool_max_idle_time: 120_000,
+              # drop idle HTTP/1 sockets at 60s
+              conn_max_idle_time: 60_000,
+              # S3 is HTTP/1 from client perspective
+              conn_opts: [
+                protocols: [:http1],
+                transport_opts: [
+                  # connect/TLS handshake timeout
+                  timeout: 20_000,
+                  keepalive: true
+                ]
+              ]
+            ]
+          })
+      }
+    ]
+  end
 
   @doc """
   Returns the S3 configuration as a map.
@@ -65,19 +103,7 @@ defmodule CloudCache.Adapters.S3 do
         &Keyword.merge(@default_retry_options, &1)
       )
       |> Keyword.merge(s3_endpoint_opts)
-      |> Keyword.take([
-        :access_key_id,
-        :host,
-        :http_client,
-        :json_codec,
-        :normalize_path,
-        :port,
-        :region,
-        :require_imds_v2,
-        :retries,
-        :secret_access_key,
-        :scheme
-      ])
+      |> Keyword.update(:http_opts, [finch: @finch], &Keyword.put(&1, :finch, @finch))
 
     ExAws.Config.new(:s3, overrides)
   end
@@ -792,7 +818,6 @@ defmodule CloudCache.Adapters.S3 do
   end
 
   @impl true
-
   def create_multipart_upload(bucket, object, opts) do
     opts = Keyword.merge(@default_options, opts)
 

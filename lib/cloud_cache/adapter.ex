@@ -8,7 +8,7 @@ defmodule CloudCache.Adapter do
   @type body :: term()
   @type options :: keyword()
 
-  @callback supervisor_children(opts :: options()) :: list()
+  @callback supervisor_child_spec(args :: term()) :: list()
 
   @callback list_buckets(opts :: options()) :: {:ok, term()} | {:error, term()}
 
@@ -124,9 +124,19 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
-  @optional_callbacks supervisor_children: 1
+  def supervisor_child_spec(adapter, args) do
+    case adapter.supervisor_child_spec(args) do
+      specs when is_list(specs) ->
+        specs
 
-  # Non-Multipart Upload API
+      term ->
+        raise "expected #{inspect(adapter)}.supervisor_child_spec/1 to return a list, got: #{inspect(term)}"
+    end
+  end
+
+  def list_buckets(adapter, opts \\ []) do
+    adapter.list_buckets(opts)
+  end
 
   def head_object(adapter, bucket, object, opts \\ []) do
     adapter.head_object(bucket, object, opts)

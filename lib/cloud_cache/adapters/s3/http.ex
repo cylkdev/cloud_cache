@@ -2,60 +2,191 @@ defmodule CloudCache.Adapters.S3.HTTP do
   @moduledoc false
   alias Req.Response
 
-  @logger_prefix ""
+  @logger_prefix "CloudCache.Adapters.S3.HTTP"
 
-  @default_opts [decode_body: false]
+  @finch CloudCache.Adapters.S3.Finch
+  @default_opts [
+    decode_body: false,
+    pool_timeout: 8_000,
+    receive_timeout: 120_000,
+    retry: :transient
+  ]
 
   def request(:get, url, _body, headers, opts) do
-    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=GET")
+    ensure_finch_started!()
 
-    @default_opts
-    |> Keyword.merge(opts)
-    |> Keyword.merge(url: url, headers: headers)
-    |> Req.get()
+    request = build_request(opts)
+
+    CloudCache.Logger.debug(
+      @logger_prefix,
+      """
+      Making HTTP request.
+
+      url:
+      #{inspect(url)}
+
+      method:
+      GET
+
+      headers:
+      #{inspect(headers)}
+
+      options:
+      #{inspect(opts, pretty: true)}
+
+      request:
+      #{inspect(request, pretty: true)}
+      """
+    )
+
+    request
+    |> Req.get(url: url, headers: headers)
     |> handle_response()
   end
 
   def request(:head, url, _body, headers, opts) do
-    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=HEAD")
+    ensure_finch_started!()
 
-    @default_opts
-    |> Keyword.merge(opts)
-    |> Keyword.merge(url: url, headers: headers)
-    |> Req.head()
+    request = build_request(opts)
+
+    CloudCache.Logger.debug(
+      @logger_prefix,
+      """
+      Making HTTP request.
+
+      url:
+      #{inspect(url)}
+
+      method:
+      HEAD
+
+      headers:
+      #{inspect(headers)}
+
+      options:
+      #{inspect(opts, pretty: true)}
+
+      request:
+      #{inspect(request, pretty: true)}
+      """
+    )
+
+    request
+    |> Req.head(url: url, headers: headers)
     |> handle_response()
   end
 
   def request(:delete, url, _body, headers, opts) do
-    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=DELETE")
+    ensure_finch_started!()
 
-    @default_opts
-    |> Keyword.merge(opts)
-    |> Keyword.merge(url: url, headers: headers)
-    |> Req.delete()
+    request = build_request(opts)
+
+    CloudCache.Logger.debug(
+      @logger_prefix,
+      """
+      Making HTTP request.
+
+      url:
+        #{inspect(url)}
+
+      method:
+        DELETE
+
+      headers:
+        #{inspect(headers)}
+
+      options:
+        #{inspect(opts, pretty: true)}
+
+      request:
+        #{inspect(request, pretty: true)}
+
+      """
+    )
+
+    request
+    |> Req.delete(url: url, headers: headers)
     |> handle_response()
   end
 
   def request(:post, url, body, headers, opts) do
-    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=POST")
+    ensure_finch_started!()
 
-    @default_opts
-    |> Keyword.merge(opts)
-    |> Keyword.merge(url: url, headers: headers)
-    |> put_body(body)
-    |> Req.post()
+    request = build_request(opts)
+
+    CloudCache.Logger.debug(
+      @logger_prefix,
+      """
+      Making HTTP request.
+
+      url:
+      #{inspect(url)}
+
+      method:
+      POST
+
+      headers:
+      #{inspect(headers)}
+
+      options:
+      #{inspect(opts, pretty: true)}
+
+      request:
+      #{inspect(request, pretty: true)}
+      """
+    )
+
+    request
+    |> Req.post(put_body([url: url, headers: headers], body))
     |> handle_response()
   end
 
   def request(:put, url, body, headers, opts) do
-    CloudCache.Logger.debug(@logger_prefix, "HTTP | BEGIN | method=PUT")
+    ensure_finch_started!()
 
+    request = build_request(opts)
+
+    CloudCache.Logger.debug(
+      @logger_prefix,
+      """
+      Making HTTP request.
+
+      url:
+      #{inspect(url)}
+
+      method:
+      PUT
+
+      headers:
+      #{inspect(headers)}
+
+      options:
+      #{inspect(opts, pretty: true)}
+
+      request:
+      #{inspect(request, pretty: true)}
+      """
+    )
+
+    request
+    |> Req.put(put_body([url: url, headers: headers], body))
+    |> handle_response()
+  end
+
+  defp ensure_finch_started! do
+    with pid when is_pid(pid) <- Process.whereis(@finch),
+         true <- Process.alive?(pid) do
+      :ok
+    else
+      _ -> raise "#{inspect(@finch)} not started."
+    end
+  end
+
+  defp build_request(opts) do
     @default_opts
     |> Keyword.merge(opts)
-    |> Keyword.merge(url: url, headers: headers)
-    |> put_body(body)
-    |> Req.put()
-    |> handle_response()
+    |> Keyword.put(:finch, @finch)
+    |> Req.new()
   end
 
   defp put_body(opts, body) do
@@ -75,7 +206,12 @@ defmodule CloudCache.Adapters.S3.HTTP do
       |> Req.get_headers_list()
       |> Map.new()
 
-    {:ok, %{status_code: status_code, headers: headers, body: response.body}}
+    {:ok,
+     %{
+       status_code: status_code,
+       headers: headers,
+       body: response.body
+     }}
   end
 
   defp handle_response({:ok, %Response{} = response}) do
