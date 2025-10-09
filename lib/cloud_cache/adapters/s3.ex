@@ -35,7 +35,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @default_s3_options [
     sandbox_enabled: Mix.env() === :test,
-    local_stack_enabled: Mix.env() === :test,
+    local_stack_enabled: false,
     http_client: CloudCache.Adapters.S3.HTTP,
     region: "us-west-1",
     retries: @default_retry_options
