@@ -27,24 +27,6 @@ defmodule CloudCache.Adapters.S3 do
   @localhost_host "s3.localhost.localstack.cloud"
   @localhost_port 4566
 
-  @default_retry_options [
-    max_attempts: if(Mix.env() === :test, do: 1, else: 10),
-    base_backoff_in_ms: 10,
-    max_backoff_in_ms: 10_000
-  ]
-
-  @default_s3_options [
-    sandbox_enabled: Mix.env() === :test,
-    local_stack_enabled: false,
-    http_client: CloudCache.Adapters.S3.HTTP,
-    region: "us-west-1",
-    retries: @default_retry_options
-  ]
-
-  @default_options [
-    s3: @default_s3_options
-  ]
-
   @finch CloudCache.Adapters.S3.Finch
 
   # 64 MiB (67_108_864 bytes)
@@ -91,19 +73,16 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.config()
   """
   def config(opts \\ []) do
-    s3_opts = Keyword.merge(@default_s3_options, opts[:s3] || [])
-
+    s3_opts = Keyword.merge(default_s3_options(), opts)
     s3_endpoint_opts = s3_endpoint_options(s3_opts)
+    default_retries_opts = default_retries_opts()
 
     overrides =
       s3_opts
-      |> Keyword.update(
-        :retries,
-        @default_retry_options,
-        &Keyword.merge(@default_retry_options, &1)
-      )
+      |> Keyword.update(:retries, default_retries_opts, &Keyword.merge(default_retries_opts, &1))
       |> Keyword.merge(s3_endpoint_opts)
       |> Keyword.update(:http_opts, [finch: @finch], &Keyword.put(&1, :finch, @finch))
+      |> Keyword.drop([:sandbox_enabled, :local_stack_enabled])
 
     ExAws.Config.new(:s3, overrides)
   end
@@ -164,7 +143,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def list_buckets(opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -190,7 +169,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def head_object(bucket, object, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -220,7 +199,7 @@ defmodule CloudCache.Adapters.S3 do
   ...
   """
   def get_object(bucket, object, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -228,8 +207,8 @@ defmodule CloudCache.Adapters.S3 do
       case bucket
            |> S3.get_object(object, opts)
            |> perform(opts) do
-        {:ok, %{body: body, headers: headers}} ->
-          {:ok, {body, headers}}
+        {:ok, %{body: body}} ->
+          {:ok, body}
 
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,
@@ -257,7 +236,7 @@ defmodule CloudCache.Adapters.S3 do
   ...
   """
   def put_object(bucket, object, body, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -296,13 +275,14 @@ defmodule CloudCache.Adapters.S3 do
   ...
   """
   def list_objects(bucket, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      case bucket |> S3.list_objects(opts) |> perform(opts) do
-        {:ok, %{body: %{contents: contents}}} ->
+      case bucket |> S3.list_objects_v2(opts) |> perform(opts) do
+        {:ok, %{body: %{contents: contents}} = res} ->
+          IO.inspect(res, label: "res")
           {:ok, contents}
 
         {:error, reason} ->
@@ -322,7 +302,7 @@ defmodule CloudCache.Adapters.S3 do
   ...
   """
   def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -359,7 +339,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def pre_sign(bucket, object, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -369,7 +349,10 @@ defmodule CloudCache.Adapters.S3 do
       expires_in = opts[:expires_in] || @one_minute_seconds
       sign_opts = Keyword.put(opts, :expires_in, expires_in)
 
-      case opts |> config() |> S3.presigned_url(http_method, bucket, object, sign_opts) do
+      case opts
+        |> Keyword.get(:s3, [])
+        |> config()
+        |> S3.presigned_url(http_method, bucket, object, sign_opts) do
         {:ok, url} ->
           {:ok,
            %{
@@ -394,7 +377,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -423,7 +406,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def list_parts(bucket, object, upload_id, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -473,7 +456,7 @@ defmodule CloudCache.Adapters.S3 do
   ...
   """
   def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -516,7 +499,7 @@ defmodule CloudCache.Adapters.S3 do
   ...
   """
   def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -565,7 +548,7 @@ defmodule CloudCache.Adapters.S3 do
         content_length,
         opts \\ []
       ) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -705,7 +688,7 @@ defmodule CloudCache.Adapters.S3 do
         src_range,
         opts \\ []
       ) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -754,7 +737,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -791,7 +774,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -819,7 +802,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def create_multipart_upload(bucket, object, opts) do
-    opts = Keyword.merge(@default_options, opts)
+    opts = Keyword.merge(default_options(), opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -842,6 +825,29 @@ defmodule CloudCache.Adapters.S3 do
     else
       sandbox_create_multipart_upload_response(bucket, object, opts)
     end
+  end
+
+  defp default_retries_opts do
+    [
+      max_attempts: if(CloudCache.Config.mix_env() === :test, do: 1, else: 10),
+      base_backoff_in_ms: 10,
+      max_backoff_in_ms: 10_000
+    ]
+  end
+
+  defp default_s3_options do
+    [
+      sandbox_enabled: CloudCache.Config.mix_env() === :test,
+      local_stack_enabled: false,
+      http_client: CloudCache.Adapters.S3.HTTP,
+      region: "us-west-1",
+      retries: default_retries_opts()
+    ]
+  end
+
+  @doc false
+  def default_options do
+    [s3: default_s3_options()]
   end
 
   # -----------------
@@ -872,24 +878,23 @@ defmodule CloudCache.Adapters.S3 do
   end
 
   defp perform(op, opts) do
-    with {:ok, payload} <- Operation.perform(op, config(opts)) do
+    with {:ok, payload} <- Operation.perform(op, config(opts[:s3] || [])) do
       {:ok, deserialize(payload)}
     end
   end
 
-  defp deserialize_key(str) when is_binary(str), do: str |> normalize_key() |> String.to_atom()
-  defp deserialize_key(term), do: term
-
-  defp normalize_key(key) when key in ["etag", "e_tag"] do
-    "etag"
-  end
-
-  defp normalize_key(key) do
+  defp atomize_key(key) do
     key
     |> String.downcase()
     |> String.replace(["-", " "], "_")
     |> ProperCase.snake_case()
+    |> String.to_atom()
   end
+
+  defp normalize_key(:e_tag), do: :etag
+  defp normalize_key("etag"), do: :etag
+  defp normalize_key("e_tag"), do: :etag
+  defp normalize_key(key), do: key
 
   defp deserialize(values) when is_list(values) do
     Enum.map(values, &deserialize/1)
@@ -897,18 +902,22 @@ defmodule CloudCache.Adapters.S3 do
 
   defp deserialize({key, val}) do
     final_key = deserialize_key(key)
-    final_value = deserialize_value(final_key, val)
-    {final_key, deserialize(final_value)}
+    {final_key, final_key |> deserialize_value(val) |> deserialize()}
   end
 
   defp deserialize(payload) when is_map(payload) and not is_struct(payload) do
-    Map.new(payload, fn {key, val} ->
-      deserialize({key, val})
-    end)
+    Map.new(payload, fn {key, val} -> deserialize({key, val}) end)
   end
 
   defp deserialize(val) do
     val
+  end
+
+  defp deserialize_key(key) do
+    case normalize_key(key) do
+      k when is_atom(k) -> k
+      k when is_binary(k) -> atomize_key(k)
+    end
   end
 
   defp deserialize_value(key, vals) when is_list(vals) do
@@ -992,27 +1001,27 @@ defmodule CloudCache.Adapters.S3 do
   # Sandbox API
   # -----------------
 
-  if Mix.env() === :test do
-    defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Testing.S3Sandbox
+  if CloudCache.Config.mix_env() === :test do
+    defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Sandbox
 
     defdelegate sandbox_list_buckets_response(opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :list_buckets_response
 
     defdelegate sandbox_head_object_response(bucket, object, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :head_object_response
 
     defdelegate sandbox_get_object_response(bucket, object, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :get_object_response
 
     defdelegate sandbox_put_object_response(bucket, object, body, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :put_object_response
 
     defdelegate sandbox_list_objects_response(bucket, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :list_objects_response
 
     defdelegate sandbox_copy_object_response(
@@ -1022,15 +1031,15 @@ defmodule CloudCache.Adapters.S3 do
                   src_object,
                   opts
                 ),
-                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_object_response
 
     defdelegate sandbox_pre_sign_response(bucket, object, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :pre_sign_response
 
     defdelegate sandbox_list_parts_response(bucket, object, upload_id, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :list_parts_response
 
     defdelegate sandbox_upload_part_response(
@@ -1041,11 +1050,11 @@ defmodule CloudCache.Adapters.S3 do
                   body,
                   opts
                 ),
-                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Sandbox,
                 as: :upload_part_response
 
     defdelegate sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :pre_sign_part_response
 
     defdelegate sandbox_copy_object_multipart_response(
@@ -1055,7 +1064,7 @@ defmodule CloudCache.Adapters.S3 do
                   src_object,
                   opts
                 ),
-                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_object_multipart_response
 
     defdelegate sandbox_copy_parts_response(
@@ -1067,7 +1076,7 @@ defmodule CloudCache.Adapters.S3 do
                   content_length,
                   opts
                 ),
-                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_parts_response
 
     defdelegate sandbox_copy_part_response(
@@ -1080,7 +1089,7 @@ defmodule CloudCache.Adapters.S3 do
                   range,
                   opts
                 ),
-                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_part_response
 
     defdelegate sandbox_complete_multipart_upload_response(
@@ -1090,15 +1099,15 @@ defmodule CloudCache.Adapters.S3 do
                   parts,
                   opts
                 ),
-                to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+                to: CloudCache.Adapters.S3.Sandbox,
                 as: :complete_multipart_upload_response
 
     defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :abort_multipart_upload_response
 
     defdelegate sandbox_create_multipart_upload_response(bucket, object, opts),
-      to: CloudCache.Adapters.S3.Testing.S3Sandbox,
+      to: CloudCache.Adapters.S3.Sandbox,
       as: :create_multipart_upload_response
   else
     defp sandbox_disabled?, do: true

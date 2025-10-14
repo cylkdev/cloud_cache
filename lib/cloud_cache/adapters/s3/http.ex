@@ -40,7 +40,7 @@ defmodule CloudCache.Adapters.S3.HTTP do
     )
 
     request
-    |> Req.get(url: url, headers: headers)
+    |> Req.get(body: "", url: url, headers: headers)
     |> handle_response()
   end
 

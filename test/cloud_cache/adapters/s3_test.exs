@@ -1,10 +1,23 @@
 defmodule CloudCache.Adapters.S3Test do
   use ExUnit.Case, async: true
-  alias CloudCache.Adapters.S3.Testing.Local
+  alias CloudCache.Adapters.S3.Local
   alias CloudCache.Adapters.S3
 
   @bucket "test-bucket"
-  @options [s3: [sandbox_enabled: false]]
+  @options [
+    s3: [
+      sandbox_enabled: false,
+      local_stack_enabled: true
+    ]
+  ]
+
+  setup_all do
+    []
+    |> S3.supervisor_child_spec()
+    |> Enum.map(fn {mod, child_opts} -> start_supervised!({mod, child_opts}, []) end)
+
+    :ok
+  end
 
   describe "list_buckets/3" do
     test "returns all buckets" do
@@ -57,31 +70,7 @@ defmodule CloudCache.Adapters.S3Test do
     test "can download object" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"
       assert {:ok, _} = S3.put_object(@bucket, dest_object, "content", @options)
-
-      assert {:ok, {body, headers}} = S3.get_object(@bucket, dest_object, @options)
-
-      assert "content" === body
-
-      assert %{
-               # ~U[2025-09-30 19:25:01Z],
-               date: _,
-               # "TwistedWeb/24.3.0",
-               server: _,
-               # ~U[2025-09-30 19:25:01Z],
-               last_modified: _,
-               # "binary/octet-stream",
-               content_type: _,
-               # "9a0364b9e99bb480dd25e1f0284c8555",
-               etag: _,
-               # "s9lzHYrFp76ZVxRcpX9+5cjAnEH2ROuNkd2BHfIa6UkFVdtjf5mKR3/eTPFvsiP/XV/VLi31234=",
-               x_amz_id_2: _,
-               # "01112068-f3b4-4c7b-8132-d23ddc59367d",
-               x_amz_request_id: _,
-               # "AES256",
-               x_amz_server_side_encryption: _,
-               # "bytes"
-               accept_ranges: _
-             } = headers
+      assert {:ok, "content"} = S3.get_object(@bucket, dest_object, @options)
     end
 
     test "can download object range" do
@@ -91,15 +80,12 @@ defmodule CloudCache.Adapters.S3Test do
       start_byte = 0
       end_byte = 2
 
-      assert {:ok, {body, headers}} =
+      assert {:ok, "con"} =
                S3.get_object(
                  @bucket,
                  dest_object,
                  Keyword.put(@options, :range, "bytes=#{start_byte}-#{end_byte}")
                )
-
-      assert "con" = body
-      assert %{content_range: "bytes 0-2/7"} = headers
     end
   end
 

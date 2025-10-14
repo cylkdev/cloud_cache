@@ -1,5 +1,5 @@
-if Mix.env() === :test do
-  defmodule CloudCache.Adapters.S3.Testing.S3Sandbox do
+if CloudCache.Config.mix_env() === :test and Code.ensure_loaded?(SandboxRegistry) do
+  defmodule CloudCache.Adapters.S3.Sandbox do
     @moduledoc false
 
     @registry :cloud_cache_s3_sandbox
@@ -14,6 +14,7 @@ if Mix.env() === :test do
       Registry.start_link(keys: @keys, name: @registry)
     end
 
+    @spec head_object_response(any(), any()) :: any()
     @doc """
     Returns the registered response function for `head_object/3` in the
     context of the calling process.
@@ -737,7 +738,7 @@ if Mix.env() === :test do
 
     ## Examples
 
-        SharedUtils.Support.S3Sandbox.set_list_objects_responses([
+        CloudCache.Adapters.S3.Sandbox.set_list_objects_responses([
           {"test-bucket", fn ->
             {:ok, [
               %{
@@ -1010,7 +1011,7 @@ if Mix.env() === :test do
       alias #{inspect(__MODULE__)}
 
       setup do
-        S3Sandbox.set_#{action}_responses([
+        #{inspect(__MODULE__)}.set_#{action}_responses([
           #{Enum.map_join(doc_examples, "\n    # or\n", &("    " <> &1))}
           # or
           {~r|http://na1|, fn -> _response end}

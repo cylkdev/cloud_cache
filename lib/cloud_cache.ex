@@ -124,6 +124,12 @@ defmodule CloudCache do
     |> Adapter.list_buckets(opts)
   end
 
+  def list_objects(bucket, opts \\ []) do
+    opts
+    |> adapter()
+    |> Adapter.list_objects(bucket, opts)
+  end
+
   def head_object(bucket, object, opts \\ []) do
     opts
     |> adapter()
@@ -152,12 +158,6 @@ defmodule CloudCache do
     opts
     |> adapter()
     |> Adapter.copy_object(dest_bucket, dest_object, src_bucket, src_object, opts)
-  end
-
-  def list_objects(bucket, opts \\ []) do
-    opts
-    |> adapter()
-    |> Adapter.list_objects(bucket, opts)
   end
 
   # Multipart Upload API

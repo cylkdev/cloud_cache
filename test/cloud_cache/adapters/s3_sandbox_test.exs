@@ -1,7 +1,7 @@
-defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
+defmodule CloudCache.Adapters.S3.SandboxTest do
   use ExUnit.Case, async: true
   alias CloudCache.Adapters.S3
-  alias CloudCache.Adapters.S3.Testing.S3Sandbox
+  alias CloudCache.Adapters.S3.Sandbox
 
   @non_existent_bucket "non-existent-bucket"
   @non_existent_object "non-existent-object"
@@ -141,9 +141,12 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
            {:ok,
             [
               %{
-                key: "test-object",
-                last_modified: ~U[2025-08-30 01:00:00.000000Z],
-                etag: "etag"
+                owner: nil,
+                size: 12,
+                key: "hello_world.txt",
+                last_modified: ~U[2025-10-13 17:42:54.000Z],
+                etag: "86fb269d190d2c85f6e0468ceca42a20",
+                storage_class: "STANDARD"
               }
             ]}
          end}
@@ -152,10 +155,13 @@ defmodule CloudCache.Adapters.S3.Testing.S3SandboxTest do
       assert {:ok,
               [
                 %{
-                  key: "test-object",
-                  last_modified: ~U[2025-08-30 01:00:00.000000Z],
-                  etag: "etag"
-                }
+                owner: nil,
+                size: 12,
+                key: "hello_world.txt",
+                last_modified: ~U[2025-10-13 17:42:54.000Z],
+                etag: "86fb269d190d2c85f6e0468ceca42a20",
+                storage_class: "STANDARD"
+              }
               ]} = S3.list_objects(@bucket, @options)
     end
   end
