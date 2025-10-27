@@ -21,6 +21,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @logger_prefix "CloudCache.Adapters.S3"
 
+  @mix_env Mix.env()
   @one_minute_seconds 60
 
   @localhost_scheme "http://"
@@ -350,9 +351,9 @@ defmodule CloudCache.Adapters.S3 do
       sign_opts = Keyword.put(opts, :expires_in, expires_in)
 
       case opts
-        |> Keyword.get(:s3, [])
-        |> config()
-        |> S3.presigned_url(http_method, bucket, object, sign_opts) do
+           |> Keyword.get(:s3, [])
+           |> config()
+           |> S3.presigned_url(http_method, bucket, object, sign_opts) do
         {:ok, url} ->
           {:ok,
            %{
@@ -829,7 +830,7 @@ defmodule CloudCache.Adapters.S3 do
 
   defp default_retries_opts do
     [
-      max_attempts: if(CloudCache.Config.mix_env() === :test, do: 1, else: 10),
+      max_attempts: if(@mix_env === :test, do: 1, else: 10),
       base_backoff_in_ms: 10,
       max_backoff_in_ms: 10_000
     ]
@@ -837,7 +838,7 @@ defmodule CloudCache.Adapters.S3 do
 
   defp default_s3_options do
     [
-      sandbox_enabled: CloudCache.Config.mix_env() === :test,
+      sandbox_enabled: @mix_env === :test,
       local_stack_enabled: false,
       http_client: CloudCache.Adapters.S3.HTTP,
       region: "us-west-1",
@@ -1001,7 +1002,7 @@ defmodule CloudCache.Adapters.S3 do
   # Sandbox API
   # -----------------
 
-  if CloudCache.Config.mix_env() === :test do
+  if Code.ensure_loaded?(SandboxRegistry) do
     defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Sandbox
 
     defdelegate sandbox_list_buckets_response(opts),

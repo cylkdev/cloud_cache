@@ -54,7 +54,7 @@ defmodule CloudCache.MixProject do
       {:jason, "~> 1.0", optional: true},
       {:req, "~> 0.5", optional: true},
       {:error_message, ">= 0.0.0", optional: true},
-      {:sandbox_registry, ">= 0.0.0", only: :test, runtime: false}
+      {:sandbox_registry, ">= 0.0.0"}
     ]
   end
 end
