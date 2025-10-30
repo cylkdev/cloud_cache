@@ -12,6 +12,34 @@ defmodule CloudCache.Adapters.S3.HTTP do
     retry: :transient
   ]
 
+  def build_request(opts) do
+    @default_opts
+    |> Keyword.merge(opts)
+    |> Keyword.put(:finch, @finch)
+    |> normalize_follow_redirects_opt()
+    |> Req.new()
+  end
+
+  defp normalize_follow_redirects_opt(opts) do
+    if Keyword.has_key?(opts, :follow_redirect) do
+      opts
+      |> Keyword.delete(:follow_redirect)
+      |> Keyword.put(:follow_redirects, Keyword.fetch!(opts, :follow_redirect))
+    else
+      opts
+    end
+  end
+
+  defp put_body(opts, body) do
+    if opts[:json?] do
+      opts
+      |> Keyword.put(:json, body)
+      |> Keyword.delete(:json?)
+    else
+      Keyword.put(opts, :body, body)
+    end
+  end
+
   def request(:get, url, _body, headers, opts) do
     ensure_finch_started!()
 
@@ -179,23 +207,6 @@ defmodule CloudCache.Adapters.S3.HTTP do
       :ok
     else
       _ -> raise "#{inspect(@finch)} not started."
-    end
-  end
-
-  defp build_request(opts) do
-    @default_opts
-    |> Keyword.merge(opts)
-    |> Keyword.put(:finch, @finch)
-    |> Req.new()
-  end
-
-  defp put_body(opts, body) do
-    if opts[:json?] do
-      opts
-      |> Keyword.put(:json, body)
-      |> Keyword.delete(:json?)
-    else
-      Keyword.put(opts, :body, body)
     end
   end
 

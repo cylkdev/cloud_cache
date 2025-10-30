@@ -8,9 +8,10 @@ defmodule CloudCache.Adapter do
   @type body :: term()
   @type options :: keyword()
 
-  @callback supervisor_child_spec(args :: term()) :: list()
-
   @callback list_buckets(opts :: options()) :: {:ok, term()} | {:error, term()}
+
+  @callback create_bucket(bucket :: bucket(), region :: binary(), opts :: options()) ::
+              {:ok, term()} | {:error, term()}
 
   @callback head_object(
               bucket :: bucket(),
@@ -124,18 +125,12 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
-  def supervisor_child_spec(adapter, args) do
-    case adapter.supervisor_child_spec(args) do
-      specs when is_list(specs) ->
-        specs
-
-      term ->
-        raise "expected #{inspect(adapter)}.supervisor_child_spec/1 to return a list, got: #{inspect(term)}"
-    end
-  end
-
   def list_buckets(adapter, opts \\ []) do
     adapter.list_buckets(opts)
+  end
+
+  def create_bucket(adapter, bucket, region, opts \\ []) do
+    adapter.create_bucket(bucket, region, opts)
   end
 
   def head_object(adapter, bucket, object, opts \\ []) do

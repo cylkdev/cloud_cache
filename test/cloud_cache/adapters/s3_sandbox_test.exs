@@ -11,7 +11,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "list_objects/1" do
     test "returns all buckets" do
-      S3Sandbox.set_list_buckets_responses([
+      Sandbox.set_list_buckets_responses([
         fn ->
           {:ok,
            [
@@ -35,7 +35,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "head_object/3" do
     test "returns object metadata on success" do
-      S3Sandbox.set_head_object_responses([
+      Sandbox.set_head_object_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -58,7 +58,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns not_found error if object does not exist" do
-      S3Sandbox.set_head_object_responses([
+      Sandbox.set_head_object_responses([
         {@bucket,
          fn ->
            {:error,
@@ -87,7 +87,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "put_object/4" do
     test "successfully puts an object in the sandbox" do
-      S3Sandbox.set_put_object_responses([
+      Sandbox.set_put_object_responses([
         {~r|.*|,
          fn ->
            {:ok,
@@ -124,7 +124,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns an error when bucket is not found" do
-      S3Sandbox.set_put_object_responses([
+      Sandbox.set_put_object_responses([
         {~r|.*|, fn -> {:error, %{message: "bucket not found"}} end}
       ])
 
@@ -135,7 +135,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "list_objects/2" do
     test "returns list of objects on success" do
-      S3Sandbox.set_list_objects_responses([
+      Sandbox.set_list_objects_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -168,7 +168,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "copy_object/3" do
     test "returns object metadata on success" do
-      S3Sandbox.set_copy_object_responses([
+      Sandbox.set_copy_object_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -188,7 +188,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns not_found error if object does not exist" do
-      S3Sandbox.set_copy_object_responses([
+      Sandbox.set_copy_object_responses([
         {@bucket,
          fn ->
            {:error,
@@ -222,7 +222,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "pre_sign/3" do
     test "returns a presigned URL and metadata on success" do
-      S3Sandbox.set_pre_sign_responses([
+      Sandbox.set_pre_sign_responses([
         {@bucket,
          fn object ->
            {:ok,
@@ -247,7 +247,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "list_parts/4" do
     test "returns list of parts and count on success" do
-      S3Sandbox.set_list_parts_responses([
+      Sandbox.set_list_parts_responses([
         {@bucket,
          fn ->
            {:ok, [%{part_number: 1, size: 5_247_794, etag: "etag_123"}]}
@@ -259,7 +259,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns not_found error if object or upload ID is invalid" do
-      S3Sandbox.set_list_parts_responses([
+      Sandbox.set_list_parts_responses([
         {@bucket,
          fn ->
            {:error,
@@ -291,7 +291,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "pre_sign_part/5" do
     test "returns a presigned URL for the given part on success" do
-      S3Sandbox.set_pre_sign_part_responses([
+      Sandbox.set_pre_sign_part_responses([
         {@bucket,
          fn _object, _upload_id, part_number ->
            {:ok,
@@ -316,7 +316,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "upload_part/6" do
     test "returns :ok on successful part copy" do
-      S3Sandbox.set_upload_part_responses([
+      Sandbox.set_upload_part_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -343,7 +343,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns service_unavailable error on failure to copy part" do
-      S3Sandbox.set_upload_part_responses([
+      Sandbox.set_upload_part_responses([
         {@bucket,
          fn ->
            {:error,
@@ -378,7 +378,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "copy_parts/8" do
     test "returns :ok on successful part copy" do
-      S3Sandbox.set_copy_parts_responses([
+      Sandbox.set_copy_parts_responses([
         {@bucket,
          fn ->
            {:ok, [{1, "etag_1"}, {2, "etag_2"}]}
@@ -398,7 +398,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns service_unavailable error on failure to copy part" do
-      S3Sandbox.set_copy_parts_responses([
+      Sandbox.set_copy_parts_responses([
         {@bucket,
          fn ->
            {:error,
@@ -425,7 +425,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "copy_part/8" do
     test "returns :ok on successful part copy" do
-      S3Sandbox.set_copy_part_responses([
+      Sandbox.set_copy_part_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -454,7 +454,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns service_unavailable error on failure to copy part" do
-      S3Sandbox.set_copy_part_responses([
+      Sandbox.set_copy_part_responses([
         {@bucket,
          fn ->
            {:error,
@@ -482,7 +482,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "create_multipart_upload/3" do
     test "returns upload information on success" do
-      S3Sandbox.set_create_multipart_upload_responses([
+      Sandbox.set_create_multipart_upload_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -499,7 +499,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns service_unavailable error on failure to initiate upload" do
-      S3Sandbox.set_create_multipart_upload_responses([
+      Sandbox.set_create_multipart_upload_responses([
         {@bucket,
          fn ->
            {:error,
@@ -521,7 +521,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "complete_multipart_upload/5" do
     test "returns file metadata on successful multipart upload completion" do
-      S3Sandbox.set_complete_multipart_upload_responses([
+      Sandbox.set_complete_multipart_upload_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -551,7 +551,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns not_found error if the multipart upload is not found" do
-      S3Sandbox.set_complete_multipart_upload_responses([
+      Sandbox.set_complete_multipart_upload_responses([
         {@bucket,
          fn ->
            {:error,
@@ -579,7 +579,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
 
   describe "abort_multipart_upload/4" do
     test "returns OK tuple on successful abort" do
-      S3Sandbox.set_abort_multipart_upload_responses([
+      Sandbox.set_abort_multipart_upload_responses([
         {@bucket,
          fn ->
            {:ok,
@@ -611,7 +611,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
 
     test "returns service_unavailable error on failure to abort" do
-      S3Sandbox.set_abort_multipart_upload_responses([
+      Sandbox.set_abort_multipart_upload_responses([
         {@bucket,
          fn ->
            {:error,

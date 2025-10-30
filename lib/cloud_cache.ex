@@ -1,11 +1,23 @@
 defmodule CloudCache do
   @moduledoc """
-  CloudCache is a flexible and pluggable caching layer for cloud storage operations,
-  designed to simplify interactions with cloud providers like AWS S3.
+  CloudCache is a flexible and pluggable caching layer for cloud storage
+  operations, designed to simplify interactions with cloud providers
+  like AWS S3.
 
   ## Usage
 
-  Starting `CloudCache` is easy, just choose your adapter and run:
+  CloudCache automatically starts the configured caches when the application
+  starts. This means if you're using the default adapter, `CloudCache.Adapters.S3`,
+  you don't need to do anything else.
+
+  If you want to start the caches manually then first set `auto_start` to `false`
+  in your config:
+
+  ```elixir
+  config :cloud_cache, auto_start: false
+  ```
+
+  Then you can start `CloudCache` manually:
 
   ```elixir
   CloudCache.start_link([CloudCache.Adapters.S3])
@@ -70,50 +82,99 @@ defmodule CloudCache do
 
   alias CloudCache.Adapter
 
+  @registry CloudCache.Registry
+  @instances :instances
   @default_adapter CloudCache.Adapters.S3
   @default_name __MODULE__
 
-  def start_link(name \\ @default_name, caches, opts \\ []) do
-    Supervisor.start_link(__MODULE__, caches, Keyword.put(opts, :name, name))
+  @doc """
+  Returns a list pids of all running instances.
+
+  ### Examples
+
+      iex> CloudCache.instances()
+  """
+  def instances do
+    @registry
+    |> Registry.lookup(@instances)
+    |> Enum.map(fn {pid, _value} -> pid end)
   end
 
-  def child_spec({name, caches, opts}) do
+  @doc """
+  Returns the list of children for the given instance.
+
+  ### Examples
+
+      iex> CloudCache.which_children()
+  """
+  def which_children(name \\ @default_name) do
+    Supervisor.which_children(name)
+  end
+
+  @doc """
+  Returns the pid of the instance with the given name.
+
+  ### Examples
+
+      iex> CloudCache.whereis()
+  """
+  def whereis(name \\ @default_name) do
+    Process.whereis(name)
+  end
+
+  @doc """
+  Starts a new instance with the given caches and options.
+
+  ### Examples
+
+      iex> CloudCache.start_link([CloudCache.Adapters.S3])
+  """
+  def start_link(caches, opts \\ []) do
+    {name, opts} = Keyword.pop(opts, :name, @default_name)
+    Supervisor.start_link(__MODULE__, {name, caches}, Keyword.put(opts, :name, name))
+  end
+
+  @doc """
+  Returns a child specification for the given caches and options.
+  """
+  def child_spec({caches, opts}) do
     %{
-      id: {__MODULE__, name},
-      start: {__MODULE__, :start_link, [name, caches, opts]},
+      id: {__MODULE__, opts[:id] || opts[:name] || opts[:key] || opts[:default]},
+      start: {__MODULE__, :start_link, [caches, opts]},
       type: :supervisor,
       restart: Keyword.get(opts, :restart, :permanent),
       shutdown: Keyword.get(opts, :shutdown, 5_000)
     }
   end
 
-  def child_spec({caches, opts}) do
-    child_spec({@default_name, caches, opts})
-  end
-
   def child_spec(list) do
-    if Keyword.keyword?(list) do
-      name = list[:name] || @default_adapter
-      caches = list[:caches] || []
-      opts = Keyword.drop(list, [:name, :caches])
-      child_spec({name, caches, opts})
-    else
-      child_spec({@default_name, list, []})
+    cond do
+      list === [] -> child_spec({[], []})
+      Keyword.keyword?(list) -> list |> Keyword.pop(:caches, []) |> child_spec()
+      true -> child_spec({list, []})
     end
   end
 
   @impl true
-  def init(caches) do
+  def init({name, caches}) do
+    children = collect_children(caches)
+
+    case Registry.register(@registry, @instances, nil) do
+      {:ok, _} -> Supervisor.init(children, strategy: :one_for_one)
+      {:error, {:already_registered, _}} -> raise "instance already started: #{inspect(name)}"
+    end
+  end
+
+  defp collect_children(caches) do
     caches
-    |> Kernel.++(CloudCache.Config.caches())
-    |> List.flatten()
-    |> Enum.flat_map(fn
-      {adapter, args} -> Adapter.supervisor_child_spec(adapter, args)
-      adapter -> Adapter.supervisor_child_spec(adapter, [])
+    |> Enum.map(fn
+      {adapter, child_spec_args} -> {adapter, child_spec_args}
+      adapter -> {adapter, []}
     end)
-    |> Enum.reduce(MapSet.new(), fn entry, set -> MapSet.put(set, entry) end)
-    |> MapSet.to_list()
-    |> Supervisor.init(strategy: :one_for_one)
+    |> Enum.reduce([], fn {adapter, child_spec_args}, acc ->
+      [adapter.child_spec(child_spec_args) | acc]
+    end)
+    |> Enum.reverse()
   end
 
   # Non-Multipart Upload API
@@ -122,6 +183,12 @@ defmodule CloudCache do
     opts
     |> adapter()
     |> Adapter.list_buckets(opts)
+  end
+
+  def create_bucket(bucket, region, opts \\ []) do
+    opts
+    |> adapter()
+    |> Adapter.create_bucket(bucket, region, opts)
   end
 
   def list_objects(bucket, opts \\ []) do
@@ -251,6 +318,6 @@ defmodule CloudCache do
   end
 
   defp adapter(opts) do
-    opts[:cloud_cache] || @default_adapter
+    opts[:cloud_cache][:adapter] || @default_adapter
   end
 end

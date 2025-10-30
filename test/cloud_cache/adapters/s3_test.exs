@@ -1,23 +1,11 @@
 defmodule CloudCache.Adapters.S3Test do
   use ExUnit.Case, async: true
-  alias CloudCache.Adapters.S3.Local
   alias CloudCache.Adapters.S3
+  alias CloudCache.Adapters.S3.{Local, Testing}
 
+  @name CloudCache.Adapters.S3Test
   @bucket "test-bucket"
-  @options [
-    s3: [
-      sandbox_enabled: false,
-      local_stack_enabled: true
-    ]
-  ]
-
-  setup_all do
-    []
-    |> S3.supervisor_child_spec()
-    |> Enum.map(fn {mod, child_opts} -> start_supervised!({mod, child_opts}, []) end)
-
-    :ok
-  end
+  @local_stack_opts [s3: [sandbox_enabled: false, local_stack: true]]
 
   describe "list_buckets/3" do
     test "returns all buckets" do
@@ -28,7 +16,7 @@ defmodule CloudCache.Adapters.S3Test do
                   # ~U[2025-09-30 20:48:01.000Z]
                   creation_date: _
                 }
-              ]} = S3.list_buckets(@options)
+              ]} = S3.list_buckets(@local_stack_opts)
     end
   end
 
@@ -36,7 +24,7 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns object metadata on success" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"
 
-      assert {:ok, _} = Local.put_object(@bucket, dest_object, "content", [])
+      assert {:ok, _} = S3.put_object(@bucket, dest_object, "content", @local_stack_opts)
 
       assert {:ok,
               %{
@@ -44,7 +32,7 @@ defmodule CloudCache.Adapters.S3Test do
                 content_type: content_type,
                 etag: etag,
                 last_modified: last_modified
-              }} = S3.head_object(@bucket, dest_object, @options)
+              }} = S3.head_object(@bucket, dest_object, @local_stack_opts)
 
       assert content_length >= 0
       assert content_type
@@ -62,20 +50,20 @@ defmodule CloudCache.Adapters.S3Test do
                   object: "nonexistent-object"
                 }
               }} =
-               S3.head_object(@bucket, "nonexistent-object", @options)
+               S3.head_object(@bucket, "nonexistent-object", @local_stack_opts)
     end
   end
 
   describe "get_object/3" do
     test "can download object" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"
-      assert {:ok, _} = S3.put_object(@bucket, dest_object, "content", @options)
-      assert {:ok, "content"} = S3.get_object(@bucket, dest_object, @options)
+      assert {:ok, _} = S3.put_object(@bucket, dest_object, "content", @local_stack_opts)
+      assert {:ok, "content"} = S3.get_object(@bucket, dest_object, @local_stack_opts)
     end
 
     test "can download object range" do
       dest_object = "test_#{:erlang.unique_integer()}.txt"
-      assert {:ok, _} = S3.put_object(@bucket, dest_object, "content", @options)
+      assert {:ok, _} = S3.put_object(@bucket, dest_object, "content", @local_stack_opts)
 
       start_byte = 0
       end_byte = 2
@@ -84,7 +72,7 @@ defmodule CloudCache.Adapters.S3Test do
                S3.get_object(
                  @bucket,
                  dest_object,
-                 Keyword.put(@options, :range, "bytes=#{start_byte}-#{end_byte}")
+                 Keyword.put(@local_stack_opts, :range, "bytes=#{start_byte}-#{end_byte}")
                )
     end
   end
@@ -113,17 +101,23 @@ defmodule CloudCache.Adapters.S3Test do
                 x_amz_request_id: _,
                 # "AES256"
                 x_amz_server_side_encryption: _
-              }} = S3.put_object(@bucket, dest_object, "content", @options)
+              }} = S3.put_object(@bucket, dest_object, "content", @local_stack_opts)
     end
   end
 
   describe "copy_object/3" do
     test "returns object metadata on success" do
       src_object = "test_#{:erlang.unique_integer()}.txt"
-      assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
+      assert {:ok, _} = S3.put_object(@bucket, src_object, "content", @local_stack_opts)
 
       assert {:ok, _xml} =
-               S3.copy_object(@bucket, "dest_#{src_object}", @bucket, src_object, @options)
+               S3.copy_object(
+                 @bucket,
+                 "dest_#{src_object}",
+                 @bucket,
+                 src_object,
+                 @local_stack_opts
+               )
     end
 
     test "returns not_found error if object does not exist" do
@@ -138,7 +132,13 @@ defmodule CloudCache.Adapters.S3Test do
                   src_object: "nonexistent-object"
                 }
               }} =
-               S3.copy_object(@bucket, "test-object", @bucket, "nonexistent-object", @options)
+               S3.copy_object(
+                 @bucket,
+                 "test-object",
+                 @bucket,
+                 "nonexistent-object",
+                 @local_stack_opts
+               )
     end
   end
 
@@ -146,9 +146,9 @@ defmodule CloudCache.Adapters.S3Test do
     test "returns list of objects on success" do
       src_object = "test_#{:erlang.unique_integer()}.txt"
 
-      assert {:ok, _} = Local.put_object(@bucket, src_object, "content", [])
+      assert {:ok, _} = S3.put_object(@bucket, src_object, "content", @local_stack_opts)
 
-      assert {:ok, contents} = S3.list_objects(@bucket, @options)
+      assert {:ok, contents} = S3.list_objects(@bucket, @local_stack_opts)
       assert Enum.any?(contents, fn content -> content.key === src_object end)
     end
   end
@@ -161,7 +161,7 @@ defmodule CloudCache.Adapters.S3Test do
                 url: url,
                 expires_in: 60,
                 expires_at: %DateTime{}
-              }} = S3.pre_sign(@bucket, "test-object", @options)
+              }} = S3.pre_sign(@bucket, "test-object", @local_stack_opts)
 
       assert String.contains?(url, "test-bucket/test-object")
     end
@@ -172,14 +172,14 @@ defmodule CloudCache.Adapters.S3Test do
       key = "test-object.txt"
 
       assert {:ok, %{upload_id: upload_id}} =
-               Local.create_multipart_upload(@bucket, key, [])
+               S3.create_multipart_upload(@bucket, key, @local_stack_opts)
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
-      assert {:ok, _} = Local.upload_part(@bucket, key, upload_id, 1, content, [])
+      assert {:ok, _} = S3.upload_part(@bucket, key, upload_id, 1, content, @local_stack_opts)
 
       assert {:ok, [%{part_number: 1, size: size, etag: etag}]} =
-               S3.list_parts(@bucket, key, upload_id, @options)
+               S3.list_parts(@bucket, key, upload_id, @local_stack_opts)
 
       assert size >= 0
       assert is_binary(etag)
@@ -196,7 +196,12 @@ defmodule CloudCache.Adapters.S3Test do
                   upload_id: "nonexistent_upload_id"
                 }
               }} =
-               S3.list_parts(@bucket, "nonexistent-object", "nonexistent_upload_id", @options)
+               S3.list_parts(
+                 @bucket,
+                 "nonexistent-object",
+                 "nonexistent_upload_id",
+                 @local_stack_opts
+               )
     end
   end
 
@@ -208,7 +213,7 @@ defmodule CloudCache.Adapters.S3Test do
                 url: url,
                 expires_in: 60,
                 expires_at: %DateTime{}
-              }} = S3.pre_sign_part(@bucket, "test-object.txt", "upload_id", 1, @options)
+              }} = S3.pre_sign_part(@bucket, "test-object.txt", "upload_id", 1, @local_stack_opts)
 
       assert String.contains?(url, "#{@bucket}/test-object.txt")
     end
@@ -222,7 +227,7 @@ defmodule CloudCache.Adapters.S3Test do
 
       content = (100 * 1024 * 1024) |> :crypto.strong_rand_bytes() |> Base.encode64()
 
-      assert {:ok, _} = Local.put_object(@bucket, src_object, content, @options)
+      assert {:ok, _} = S3.put_object(@bucket, src_object, content, @local_stack_opts)
 
       assert {:ok,
               %{
@@ -230,7 +235,14 @@ defmodule CloudCache.Adapters.S3Test do
                 key: _,
                 bucket: _,
                 etag: _
-              }} = S3.copy_object_multipart(@bucket, dest_object, @bucket, src_object, @options)
+              }} =
+               S3.copy_object_multipart(
+                 @bucket,
+                 dest_object,
+                 @bucket,
+                 src_object,
+                 @local_stack_opts
+               )
     end
   end
 
@@ -239,7 +251,7 @@ defmodule CloudCache.Adapters.S3Test do
       dest_object = "test-object.txt"
 
       assert {:ok, %{upload_id: upload_id}} =
-               Local.create_multipart_upload(@bucket, dest_object, [])
+               S3.create_multipart_upload(@bucket, dest_object, @local_stack_opts)
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
@@ -254,7 +266,7 @@ defmodule CloudCache.Adapters.S3Test do
                  upload_id,
                  1,
                  content,
-                 @options
+                 @local_stack_opts
                )
 
       assert is_binary(etag)
@@ -272,7 +284,7 @@ defmodule CloudCache.Adapters.S3Test do
                  "nonexistent_upload_id",
                  1,
                  "content",
-                 @options
+                 @local_stack_opts
                )
     end
   end
@@ -286,10 +298,10 @@ defmodule CloudCache.Adapters.S3Test do
 
       content_byte_size = byte_size(content)
 
-      assert {:ok, _} = Local.put_object(@bucket, src_object, content, @options)
+      assert {:ok, _} = S3.put_object(@bucket, src_object, content, @local_stack_opts)
 
       assert {:ok, %{upload_id: upload_id}} =
-               Local.create_multipart_upload(@bucket, dest_object, [])
+               S3.create_multipart_upload(@bucket, dest_object, @local_stack_opts)
 
       assert {:ok,
               %{
@@ -304,7 +316,7 @@ defmodule CloudCache.Adapters.S3Test do
                  upload_id,
                  1,
                  0..(content_byte_size - 1),
-                 @options
+                 @local_stack_opts
                )
 
       assert is_binary(etag)
@@ -324,7 +336,7 @@ defmodule CloudCache.Adapters.S3Test do
                  "nonexistent_upload_id",
                  1,
                  0..99,
-                 @options
+                 @local_stack_opts
                )
     end
   end
@@ -332,7 +344,7 @@ defmodule CloudCache.Adapters.S3Test do
   describe "create_multipart_upload/3" do
     test "returns upload information on success" do
       assert {:ok, %{bucket: @bucket, key: "test-object", upload_id: upload_id}} =
-               S3.create_multipart_upload(@bucket, "test-object", @options)
+               S3.create_multipart_upload(@bucket, "test-object", @local_stack_opts)
 
       assert is_binary(upload_id)
     end
@@ -347,7 +359,7 @@ defmodule CloudCache.Adapters.S3Test do
                   object: "test-object"
                 }
               }} =
-               S3.create_multipart_upload("nonexistent-bucket", "test-object", @options)
+               S3.create_multipart_upload("nonexistent-bucket", "test-object", @local_stack_opts)
     end
   end
 
@@ -356,7 +368,7 @@ defmodule CloudCache.Adapters.S3Test do
       dest_object = "test-object"
 
       assert {:ok, %{upload_id: upload_id}} =
-               S3.create_multipart_upload(@bucket, dest_object, @options)
+               S3.create_multipart_upload(@bucket, dest_object, @local_stack_opts)
 
       content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
 
@@ -367,7 +379,7 @@ defmodule CloudCache.Adapters.S3Test do
                  upload_id,
                  1,
                  content,
-                 @options
+                 @local_stack_opts
                )
 
       assert {:ok,
@@ -382,7 +394,7 @@ defmodule CloudCache.Adapters.S3Test do
                  dest_object,
                  upload_id,
                  [{1, etag}],
-                 @options
+                 @local_stack_opts
                )
 
       assert key === dest_object
@@ -406,7 +418,7 @@ defmodule CloudCache.Adapters.S3Test do
                  "nonexistent-object",
                  "upload_id",
                  [{1, "etag"}],
-                 @options
+                 @local_stack_opts
                )
     end
   end
@@ -416,7 +428,7 @@ defmodule CloudCache.Adapters.S3Test do
       key = "test-object"
 
       assert {:ok, %{upload_id: upload_id}} =
-               S3.create_multipart_upload(@bucket, key, @options)
+               S3.create_multipart_upload(@bucket, key, @local_stack_opts)
 
       assert {:ok,
               %{
@@ -428,7 +440,7 @@ defmodule CloudCache.Adapters.S3Test do
                   x_amz_id_2: x_amz_id_2,
                   x_amz_request_id: x_amz_request_id
                 }
-              }} = S3.abort_multipart_upload(@bucket, key, upload_id, @options)
+              }} = S3.abort_multipart_upload(@bucket, key, upload_id, @local_stack_opts)
 
       assert %DateTime{} = date
       assert is_binary(server)
@@ -442,7 +454,12 @@ defmodule CloudCache.Adapters.S3Test do
                 code: :service_unavailable,
                 message: "service temporarily unavailable"
               }} =
-               S3.abort_multipart_upload(@bucket, "nonexistent-object", "upload_id", @options)
+               S3.abort_multipart_upload(
+                 @bucket,
+                 "nonexistent-object",
+                 "upload_id",
+                 @local_stack_opts
+               )
     end
   end
 end
