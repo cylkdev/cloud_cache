@@ -209,6 +209,12 @@ defmodule CloudCache do
     |> Adapter.pre_sign(bucket, object, opts)
   end
 
+  def delete_object(bucket, object, opts \\ []) do
+    opts
+    |> adapter()
+    |> Adapter.delete_object(bucket, object, opts)
+  end
+
   def get_object(bucket, object, opts \\ []) do
     opts
     |> adapter()

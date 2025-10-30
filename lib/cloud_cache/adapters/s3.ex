@@ -309,6 +309,50 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
+      iex> CloudCache.Adapters.S3.delete_object("test-bucket", "test-object")
+  """
+  def delete_object(bucket, object, opts \\ []) do
+    opts =
+      @default_options
+      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
+      |> Utils.deep_merge(opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      case bucket
+           |> S3.delete_object(object, opts)
+           |> perform(opts[:s3] || []) do
+        {:ok, %{body: body}} ->
+          {:ok, body}
+
+        {:error, %{status: status} = reason} when status in 400..499 ->
+          {:error,
+           ErrorMessage.not_found("object not found", %{
+             bucket: bucket,
+             object: object,
+             reason: reason
+           })}
+
+        {:error, reason} ->
+          {:error,
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             bucket: bucket,
+             object: object,
+             reason: reason
+           })}
+      end
+    else
+      sandbox_delete_object_response(bucket, object, opts)
+    end
+  end
+
+  @impl true
+  @doc """
+  Returns the content of an object.
+
+  ### Examples
+
       iex> CloudCache.Adapters.S3.get_object("test-bucket", "test-object")
   """
   def get_object(bucket, object, opts \\ []) do
@@ -1177,6 +1221,10 @@ defmodule CloudCache.Adapters.S3 do
       to: CloudCache.Adapters.S3.Sandbox,
       as: :head_object_response
 
+    defdelegate sandbox_delete_object_response(bucket, object, opts),
+      to: CloudCache.Adapters.S3.Sandbox,
+      as: :delete_object_response
+
     defdelegate sandbox_get_object_response(bucket, object, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :get_object_response
@@ -1302,6 +1350,16 @@ defmodule CloudCache.Adapters.S3 do
     defp sandbox_head_object_response(bucket, object, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.head_object/3 outside of test.
+
+      bucket: #{inspect(bucket)}
+      object: #{inspect(object)}
+      options: #{inspect(opts)}
+      """
+    end
+
+    defp sandbox_delete_object_response(bucket, object, opts) do
+      raise """
+      Cannot use #{inspect(__MODULE__)}.delete_object/3 outside of test.
 
       bucket: #{inspect(bucket)}
       object: #{inspect(object)}

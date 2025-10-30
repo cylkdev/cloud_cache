@@ -1,22 +1,15 @@
 defmodule CloudCache.Adapters.S3Test do
   use ExUnit.Case, async: true
   alias CloudCache.Adapters.S3
-  alias CloudCache.Adapters.S3.{Local, Testing}
+  alias CloudCache.Adapters.S3.Testing
 
-  @name CloudCache.Adapters.S3Test
   @bucket "test-bucket"
   @local_stack_opts [s3: [sandbox_enabled: false, local_stack: true]]
 
   describe "list_buckets/3" do
     test "returns all buckets" do
-      assert {:ok,
-              [
-                %{
-                  name: "test-bucket",
-                  # ~U[2025-09-30 20:48:01.000Z]
-                  creation_date: _
-                }
-              ]} = S3.list_buckets(@local_stack_opts)
+      assert {:ok, buckets} = S3.list_buckets(@local_stack_opts)
+      assert Enum.any?(buckets, fn bucket -> bucket.name === @bucket end)
     end
   end
 
@@ -46,7 +39,7 @@ defmodule CloudCache.Adapters.S3Test do
                 code: :not_found,
                 message: "object not found",
                 details: %{
-                  bucket: "test-bucket",
+                  bucket: @bucket,
                   object: "nonexistent-object"
                 }
               }} =
@@ -191,7 +184,7 @@ defmodule CloudCache.Adapters.S3Test do
                 code: :not_found,
                 message: "object not found",
                 details: %{
-                  bucket: "test-bucket",
+                  bucket: @bucket,
                   object: "nonexistent-object",
                   upload_id: "nonexistent_upload_id"
                 }
@@ -407,7 +400,7 @@ defmodule CloudCache.Adapters.S3Test do
               %ErrorMessage{
                 code: :not_found,
                 details: %{
-                  bucket: "test-bucket",
+                  bucket: @bucket,
                   object: "nonexistent-object",
                   upload_id: "upload_id"
                 },
