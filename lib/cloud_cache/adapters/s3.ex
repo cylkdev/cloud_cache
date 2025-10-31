@@ -205,10 +205,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.list_buckets()
   """
   def list_buckets(opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -248,10 +245,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.create_bucket("test-bucket", "us-west-1")
   """
   def create_bucket(bucket, region, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -283,10 +277,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.head_object("test-bucket", "test-object")
   """
   def head_object(bucket, object, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -326,10 +317,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.delete_object("test-bucket", "test-object")
   """
   def delete_object(bucket, object, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -372,10 +360,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.get_object("test-bucket", "test-object")
   """
   def get_object(bucket, object, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -418,10 +403,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.put_object("test-bucket", "test-object", "test-body")
   """
   def put_object(bucket, object, body, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -466,10 +448,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.list_objects("test-bucket")
   """
   def list_objects(bucket, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -501,10 +480,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.copy_object("test-bucket", "test-object", "test-bucket", "test-object")
   """
   def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -550,10 +526,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.pre_sign("test-bucket", "test-object")
   """
   def pre_sign(bucket, object, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -599,10 +572,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", "test-object", "test-upload-id", 1)
   """
   def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -638,10 +608,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.list_parts("test-bucket", "test-object", "test-upload-id")
   """
   def list_parts(bucket, object, upload_id, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -697,10 +664,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.upload_part("test-bucket", "test-object", "test-upload-id", 1, "test-body")
   """
   def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -749,10 +713,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.copy_object_multipart("test-bucket", "test-object", "test-bucket", "test-object")
   """
   def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -805,10 +766,7 @@ defmodule CloudCache.Adapters.S3 do
         content_length,
         opts \\ []
       ) do
-    opts =
-      @default_options
-      |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -948,7 +906,7 @@ defmodule CloudCache.Adapters.S3 do
         src_range,
         opts \\ []
       ) do
-    opts = Utils.deep_merge(@default_options, opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -997,7 +955,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
-    opts = Utils.deep_merge(@default_options, opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -1034,7 +992,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
-    opts = Utils.deep_merge(@default_options, opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -1062,7 +1020,7 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def create_multipart_upload(bucket, object, opts) do
-    opts = Utils.deep_merge(@default_options, opts)
+    opts = with_default_options(opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -1087,9 +1045,13 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
-  # -----------------
   # Helper API
-  # -----------------
+
+  defp with_default_options(opts) do
+    @default_options
+    |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
+    |> Utils.deep_merge(opts)
+  end
 
   defp validate_parts!(entries) do
     Enum.map(entries, fn
@@ -1234,9 +1196,7 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
-  # -----------------
   # Sandbox API
-  # -----------------
 
   if Code.ensure_loaded?(SandboxRegistry) do
     defdelegate sandbox_disabled?, to: CloudCache.Adapters.S3.Sandbox
