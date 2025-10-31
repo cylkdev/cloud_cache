@@ -221,11 +221,18 @@ defmodule CloudCache.Adapters.S3 do
           {:ok, body.buckets}
 
         {:error, %{status: status} = response} when status in 400..499 ->
-          {:error, ErrorMessage.not_found("buckets not found", %{response: response})}
+          {:error,
+           ErrorMessage.not_found("buckets not found", %{
+             function: :list_buckets,
+             response: response
+           })}
 
         {:error, reason} ->
           {:error,
-           ErrorMessage.service_unavailable("service temporarily unavailable", %{reason: reason})}
+           ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :list_buckets,
+             reason: reason
+           })}
       end
     else
       sandbox_list_buckets_response(opts)
@@ -256,6 +263,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :create_bucket,
              bucket: bucket,
              region: region,
              reason: reason
@@ -288,11 +296,17 @@ defmodule CloudCache.Adapters.S3 do
           {:ok, headers}
 
         {:error, %{status: status}} when status in 400..499 ->
-          {:error, ErrorMessage.not_found("object not found", %{bucket: bucket, object: object})}
+          {:error,
+           ErrorMessage.not_found("object not found", %{
+             function: :head_object,
+             bucket: bucket,
+             object: object
+           })}
 
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :head_object,
              bucket: bucket,
              object: object,
              reason: reason
@@ -329,6 +343,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("object not found", %{
+             function: :delete_object,
              bucket: bucket,
              object: object,
              reason: reason
@@ -337,6 +352,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :delete_object,
              bucket: bucket,
              object: object,
              reason: reason
@@ -373,6 +389,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("bucket not found", %{
+             function: :get_object,
              bucket: bucket,
              object: object,
              reason: reason
@@ -381,6 +398,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :get_object,
              bucket: bucket,
              object: object,
              reason: reason
@@ -417,6 +435,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, %{status: status} = reason} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("bucket not found", %{
+             function: :put_object,
              bucket: bucket,
              object: object,
              body: body,
@@ -426,6 +445,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :put_object,
              bucket: bucket,
              object: object,
              body: body,
@@ -462,6 +482,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :list_objects,
              bucket: bucket,
              reason: reason
            })}
@@ -497,6 +518,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("object not found", %{
+             function: :copy_object,
              dest_bucket: dest_bucket,
              dest_object: dest_object,
              src_bucket: src_bucket,
@@ -506,6 +528,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :copy_object,
              dest_bucket: dest_bucket,
              dest_object: dest_object,
              src_bucket: src_bucket,
@@ -556,6 +579,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :pre_sign,
              bucket: bucket,
              object: object,
              reason: reason
@@ -643,6 +667,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("object not found", %{
+             function: :list_parts,
              bucket: bucket,
              object: object,
              upload_id: upload_id
@@ -651,6 +676,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :list_parts,
              bucket: bucket,
              object: object,
              upload_id: upload_id,
@@ -689,6 +715,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("object not found", %{
+             function: :upload_part,
              bucket: bucket,
              object: object,
              upload_id: upload_id,
@@ -699,6 +726,7 @@ defmodule CloudCache.Adapters.S3 do
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
+             function: :upload_part,
              bucket: bucket,
              object: object,
              upload_id: upload_id,
