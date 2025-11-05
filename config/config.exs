@@ -1,25 +1,17 @@
 import Config
 
+config :cloud_cache,
+  auto_start: true,
+  caches: [CloudCache.Adapters.S3]
+
+config :cloud_cache, CloudCache.Adapters.S3,
+  sandbox_enabled: false,
+  profile: "local_stack"
+
 if Mix.env() === :test do
-  config :cloud_cache,
-    auto_start: true,
-    caches: [CloudCache.Adapters.S3]
-
-  config :cloud_cache, CloudCache.Adapters.S3,
-    sandbox_enabled: false,
-    local_stack: true
+  config :cloud_cache, CloudCache.Adapters.S3, sandbox_enabled: true
 else
-  config :cloud_cache,
-    auto_start: true,
-    caches: [CloudCache.Adapters.S3]
-
   config :cloud_cache, CloudCache.Adapters.S3,
-    sandbox_enabled: false,
-    retries: [
-      max_attempts: 10,
-      base_backoff_in_ms: 10,
-      max_backoff_in_ms: 10_000
-    ],
     access_key_id: [
       {:awscli, System.get_env("AWS_PROFILE", "cloud_cache"), 30},
       {:awscli, System.get_env("AWS_PROFILE", "default"), 30},

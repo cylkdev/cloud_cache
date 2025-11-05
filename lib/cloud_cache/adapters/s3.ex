@@ -23,7 +23,7 @@ defmodule CloudCache.Adapters.S3 do
   use Supervisor
 
   alias ExAws.{Operation, S3}
-  alias CloudCache.{Config, Utils}
+  alias CloudCache.Config
   alias CloudCache.Adapters.S3.Multipart
 
   @behaviour CloudCache.Adapter
@@ -57,13 +57,17 @@ defmodule CloudCache.Adapters.S3 do
     }
   ]
 
-  @local_stack_options [
+  @localstack_endpoint_options [
     scheme: "http://",
     host: "s3.localhost.localstack.cloud",
     port: 4566,
     access_key_id: "test",
     secret_access_key: "test",
-    retries: [max_attempts: 1]
+    retries: [
+      max_attempts: 1,
+      base_backoff_in_ms: 10,
+      max_backoff_in_ms: 10_000
+    ]
   ]
 
   # 64 MiB (67_108_864 bytes)
@@ -73,24 +77,12 @@ defmodule CloudCache.Adapters.S3 do
     sandbox_enabled: false,
     http_client: CloudCache.Adapters.S3.HTTP,
     http_opts: [finch: @default_finch_name],
+    access_key_id: "<CLOUD_CACHE_ADAPTERS_S3_ACCESS_KEY_ID>",
+    secret_access_key: "<CLOUD_CACHE_ADAPTERS_S3_SECRET_ACCESS_KEY>",
     retries: [
-      max_attempts: 1,
+      max_attempts: 10,
       base_backoff_in_ms: 10,
       max_backoff_in_ms: 10_000
-    ],
-    access_key_id: [
-      {:awscli, System.get_env("AWS_PROFILE", "cloud_cache"), 30},
-      {:awscli, System.get_env("AWS_PROFILE", "default"), 30},
-      {:system, "AWS_ACCESS_KEY_ID"},
-      :instance_role,
-      "<AWS_ACCESS_KEY_ID>"
-    ],
-    secret_access_key: [
-      {:awscli, System.get_env("AWS_PROFILE", "cloud_cache"), 30},
-      {:awscli, System.get_env("AWS_PROFILE", "default"), 30},
-      {:system, "AWS_SECRET_ACCESS_KEY"},
-      :instance_role,
-      "<AWS_SECRET_ACCESS_KEY>"
     ]
   ]
   @default_options [
@@ -142,60 +134,6 @@ defmodule CloudCache.Adapters.S3 do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  @doc """
-  Returns the S3 configuration as a map.
-
-  ### Examples
-
-      iex> CloudCache.Adapters.S3.config()
-  """
-  def config(opts \\ []) do
-    overrides =
-      @default_s3_options
-      |> Utils.deep_merge(Config.get_env(__MODULE__) || [])
-      |> Utils.deep_merge(opts)
-
-    overrides =
-      if overrides[:local_stack] === true do
-        Keyword.merge(overrides, @local_stack_options)
-      else
-        overrides
-      end
-
-    final_overrides =
-      case overrides[:profile] do
-        nil ->
-          overrides
-
-        profile ->
-          overrides
-          |> Keyword.update!(:access_key_id, fn val ->
-            entries =
-              val
-              |> List.wrap()
-              |> Enum.reject(fn
-                {:awscli, ^profile, _} -> true
-                _ -> false
-              end)
-
-            [{:awscli, profile, 30} | entries]
-          end)
-          |> Keyword.update!(:secret_access_key, fn val ->
-            entries =
-              val
-              |> List.wrap()
-              |> Enum.reject(fn
-                {:awscli, ^profile, _} -> true
-                _ -> false
-              end)
-
-            [{:awscli, profile, 30} | entries]
-          end)
-      end
-
-    ExAws.Config.new(:s3, final_overrides)
-  end
-
   @impl true
   @doc """
   Returns a list of all buckets.
@@ -205,7 +143,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.list_buckets()
   """
   def list_buckets(opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -213,7 +151,7 @@ defmodule CloudCache.Adapters.S3 do
       case opts
            |> Keyword.take([:host, :port, :region, :scheme, :headers, :timeout])
            |> S3.list_buckets()
-           |> perform(opts[:s3] || []) do
+           |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body.buckets}
 
@@ -245,12 +183,12 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.create_bucket("test-bucket", "us-west-1")
   """
   def create_bucket(bucket, region, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      case bucket |> S3.put_bucket(region, opts[:s3] || []) |> perform(opts[:s3] || []) do
+      case bucket |> S3.put_bucket(region, opts) |> perform(opts) do
         {:ok, %{headers: headers}} ->
           {:ok, headers}
 
@@ -277,12 +215,12 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.head_object("test-bucket", "test-object")
   """
   def head_object(bucket, object, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      case bucket |> S3.head_object(object, opts) |> perform(opts[:s3] || []) do
+      case bucket |> S3.head_object(object, opts) |> perform(opts) do
         {:ok, %{headers: headers}} ->
           {:ok, headers}
 
@@ -317,14 +255,14 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.delete_object("test-bucket", "test-object")
   """
   def delete_object(bucket, object, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket
            |> S3.delete_object(object, opts)
-           |> perform(opts[:s3] || []) do
+           |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body}
 
@@ -360,14 +298,14 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.get_object("test-bucket", "test-object")
   """
   def get_object(bucket, object, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket
            |> S3.get_object(object, opts)
-           |> perform(opts[:s3] || []) do
+           |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body}
 
@@ -403,14 +341,14 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.put_object("test-bucket", "test-object", "test-body")
   """
   def put_object(bucket, object, body, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket
            |> S3.put_object(object, body, opts)
-           |> perform(opts[:s3] || []) do
+           |> perform(opts) do
         {:ok, %{headers: headers}} ->
           {:ok, headers}
 
@@ -448,12 +386,12 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.list_objects("test-bucket")
   """
   def list_objects(bucket, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      case bucket |> S3.list_objects_v2(opts) |> perform(opts[:s3] || []) do
+      case bucket |> S3.list_objects_v2(opts) |> perform(opts) do
         {:ok, %{body: %{contents: contents}} = res} ->
           IO.inspect(res, label: "res")
           {:ok, contents}
@@ -480,14 +418,14 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.copy_object("test-bucket", "test-object", "test-bucket", "test-object")
   """
   def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case dest_bucket
            |> S3.put_object_copy(dest_object, src_bucket, src_object, opts)
-           |> perform(opts[:s3] || []) do
+           |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body}
 
@@ -526,7 +464,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.pre_sign("test-bucket", "test-object")
   """
   def pre_sign(bucket, object, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -572,7 +510,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", "test-object", "test-upload-id", 1)
   """
   def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -608,7 +546,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.list_parts("test-bucket", "test-object", "test-upload-id")
   """
   def list_parts(bucket, object, upload_id, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -626,7 +564,7 @@ defmodule CloudCache.Adapters.S3 do
 
       bucket
       |> S3.list_parts(object, upload_id, list_parts_opts)
-      |> perform(opts[:s3] || [])
+      |> perform(opts)
       |> then(fn
         {:ok, %{body: %{parts: parts}}} ->
           {:ok, parts}
@@ -664,14 +602,14 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.upload_part("test-bucket", "test-object", "test-upload-id", 1, "test-body")
   """
   def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
       |> S3.upload_part(object, upload_id, part_number, body, opts)
-      |> perform(opts[:s3] || [])
+      |> perform(opts)
       |> then(fn
         {:ok, %{headers: headers}} ->
           {:ok, headers}
@@ -713,7 +651,7 @@ defmodule CloudCache.Adapters.S3 do
       iex> CloudCache.Adapters.S3.copy_object_multipart("test-bucket", "test-object", "test-bucket", "test-object")
   """
   def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -766,7 +704,7 @@ defmodule CloudCache.Adapters.S3 do
         content_length,
         opts \\ []
       ) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -906,7 +844,7 @@ defmodule CloudCache.Adapters.S3 do
         src_range,
         opts \\ []
       ) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
@@ -921,7 +859,7 @@ defmodule CloudCache.Adapters.S3 do
         src_range,
         opts
       )
-      |> perform(opts[:s3] || [])
+      |> perform(opts)
       |> then(fn
         {:ok, %{body: body}} ->
           {:ok, body}
@@ -955,14 +893,14 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
       |> S3.complete_multipart_upload(object, upload_id, validate_parts!(parts))
-      |> perform(opts[:s3] || [])
+      |> perform(opts)
       |> then(fn
         {:ok, %{body: body}} ->
           {:ok, body}
@@ -992,14 +930,14 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
       |> S3.abort_multipart_upload(object, upload_id)
-      |> perform(opts[:s3] || [])
+      |> perform(opts)
       |> then(fn
         {:ok, _} = result ->
           result
@@ -1020,14 +958,14 @@ defmodule CloudCache.Adapters.S3 do
 
   @impl true
   def create_multipart_upload(bucket, object, opts) do
-    opts = with_default_options(opts)
+    opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
       |> S3.initiate_multipart_upload(object, opts)
-      |> perform(opts[:s3] || [])
+      |> perform(opts)
       |> then(fn
         {:ok, %{body: body}} ->
           {:ok, body}
@@ -1046,12 +984,6 @@ defmodule CloudCache.Adapters.S3 do
   end
 
   # Helper API
-
-  defp with_default_options(opts) do
-    @default_options
-    |> Utils.deep_merge(s3: Config.get_env(__MODULE__) || [])
-    |> Utils.deep_merge(opts)
-  end
 
   defp validate_parts!(entries) do
     Enum.map(entries, fn
@@ -1080,6 +1012,59 @@ defmodule CloudCache.Adapters.S3 do
     with {:ok, payload} <- Operation.perform(op, config(opts[:s3] || [])) do
       {:ok, deserialize(payload)}
     end
+  end
+
+  @doc false
+  def config(opts \\ []) do
+    adapter_config = Config.get_env(CloudCache.Adapters.S3, [])
+
+    opts =
+      @default_s3_options
+      |> Keyword.merge(adapter_config)
+      |> Keyword.merge(opts)
+
+    opts =
+      if (opts[:localstack] || adapter_config[:localstack]) === true do
+        Keyword.merge(opts, @localstack_endpoint_options)
+      else
+        opts
+      end
+
+    opts =
+      if Keyword.has_key?(opts, :profile) do
+        profile = Keyword.fetch!(opts, :profile)
+
+        case ExAws.CredentialsIni.File.security_credentials(profile) do
+          {:ok, credentials} ->
+            region = credentials.region
+            access_key_id = credentials[:access_key_id]
+            secret_access_key = credentials[:secret_access_key]
+
+            if is_nil(access_key_id) do
+              raise "Access key ID is missing for profile #{profile}, got: #{inspect(credentials)}"
+            end
+
+            if is_nil(secret_access_key) do
+              raise "Secret access key is missing for profile #{profile}, got: #{inspect(credentials)}"
+            end
+
+            if is_nil(region) do
+              raise "Region is missing for profile #{profile}, got: #{inspect(credentials)}"
+            end
+
+            opts
+            |> Keyword.put(:region, region)
+            |> Keyword.put(:access_key_id, access_key_id)
+            |> Keyword.put(:secret_access_key, secret_access_key)
+
+          {:error, reason} ->
+            raise "Failed to fetch credentials for profile: #{profile}, reason: #{inspect(reason)}"
+        end
+      else
+        opts
+      end
+
+    ExAws.Config.new(:s3, opts)
   end
 
   defp atomize_key(key) do
@@ -1124,7 +1109,7 @@ defmodule CloudCache.Adapters.S3 do
   end
 
   defp deserialize_value(key, val) when key in [:content_length, :part_number, :size] do
-    String.to_integer(val)
+    val |> remove_quotes() |> String.to_integer()
   end
 
   defp deserialize_value(:etag, val), do: remove_quotes(val)
@@ -1141,7 +1126,7 @@ defmodule CloudCache.Adapters.S3 do
               :retain_until_date
             ] do
     if iso8601?(val) do
-      case parse_iso8601_datetime(val) do
+      case val |> remove_quotes() |> parse_iso8601_datetime() do
         {:ok, dt} ->
           dt
 
@@ -1151,7 +1136,7 @@ defmodule CloudCache.Adapters.S3 do
                   "to be an RFC timestamp, got: #{inspect(val)}"
       end
     else
-      case parse_rfc_datetime(val) do
+      case val |> remove_quotes() |> parse_rfc_datetime() do
         {:ok, datetime} ->
           datetime
 
@@ -1163,7 +1148,13 @@ defmodule CloudCache.Adapters.S3 do
     end
   end
 
-  defp deserialize_value(_, val), do: val
+  defp deserialize_value(_, val) do
+    if is_binary(val) do
+      remove_quotes(val)
+    else
+      val
+    end
+  end
 
   defp remove_quotes(str), do: String.replace(str, "\"", "")
 
