@@ -939,8 +939,8 @@ defmodule CloudCache.Adapters.S3 do
       |> S3.abort_multipart_upload(object, upload_id)
       |> perform(opts)
       |> then(fn
-        {:ok, _} = result ->
-          result
+        {:ok, %{headers: headers}} ->
+          {:ok, headers}
 
         {:error, reason} ->
           {:error,
