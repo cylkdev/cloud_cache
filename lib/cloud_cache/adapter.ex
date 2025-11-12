@@ -7,6 +7,7 @@ defmodule CloudCache.Adapter do
   @type content_length :: pos_integer()
   @type body :: term()
   @type options :: keyword()
+  @type http_method :: :get | :put | :post | :delete
 
   @callback list_buckets(opts :: options()) :: {:ok, term()} | {:error, term()}
 
@@ -53,12 +54,14 @@ defmodule CloudCache.Adapter do
 
   @callback pre_sign(
               bucket :: bucket(),
+              http_method :: http_method(),
               object :: object(),
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
   @callback pre_sign_part(
               bucket :: bucket(),
+              http_method :: http_method(),
               object :: object(),
               upload_id :: upload_id(),
               part_number :: part_number(),
@@ -143,8 +146,8 @@ defmodule CloudCache.Adapter do
     adapter.head_object(bucket, object, opts)
   end
 
-  def pre_sign(adapter, bucket, object, opts \\ []) do
-    adapter.pre_sign(bucket, object, opts)
+  def pre_sign(adapter, bucket, http_method, object, opts \\ []) do
+    adapter.pre_sign(bucket, http_method, object, opts)
   end
 
   def delete_object(adapter, bucket, object, opts \\ []) do
@@ -169,8 +172,8 @@ defmodule CloudCache.Adapter do
 
   # Multipart Upload API
 
-  def pre_sign_part(adapter, bucket, object, upload_id, part_number, opts \\ []) do
-    adapter.pre_sign_part(bucket, object, upload_id, part_number, opts)
+  def pre_sign_part(adapter, bucket, http_method, object, upload_id, part_number, opts \\ []) do
+    adapter.pre_sign_part(bucket, http_method, object, upload_id, part_number, opts)
   end
 
   def upload_part(adapter, bucket, object, upload_id, part_number, body, opts \\ []) do

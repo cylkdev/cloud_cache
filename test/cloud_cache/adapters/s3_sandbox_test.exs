@@ -241,7 +241,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
                 url: "https://example.com/test-object?signature=fake-signature",
                 expires_in: 60,
                 expires_at: ~U[2025-08-30 01:00:00.000000Z]
-              }} = S3.pre_sign(@bucket, @object, @options)
+              }} = S3.pre_sign(@bucket, :post, @object, @options)
     end
   end
 
@@ -310,7 +310,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
                 url: "https://example.com/test-object?partNumber=1&signature=fake",
                 expires_in: 120,
                 expires_at: ~U[2025-08-30 01:00:00.000000Z]
-              }} = S3.pre_sign_part(@bucket, @object, "upload_id_123", 1, @options)
+              }} = S3.pre_sign_part(@bucket, :post, @object, "upload_id_123", 1, @options)
     end
   end
 

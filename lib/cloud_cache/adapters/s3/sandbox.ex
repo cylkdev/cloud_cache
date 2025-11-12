@@ -306,15 +306,16 @@ defmodule CloudCache.Adapters.S3.Sandbox do
   end
 
   @doc """
-  Returns the registered response function for `pre_sign/3` in the
+  Returns the registered response function for `pre_sign/4` in the
   context of the calling process.
   """
-  def pre_sign_response(bucket, object, opts \\ []) do
+  def pre_sign_response(bucket, http_method, object, opts \\ []) do
     doc_examples =
       [
         "fn -> ...",
         "fn (object) -> ...",
-        "fn (object, options) -> ..."
+        "fn (http_method, object) -> ...",
+        "fn (http_method, object, options) -> ..."
       ]
 
     func = find!(:pre_sign, bucket, doc_examples)
@@ -327,7 +328,10 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         func.(object)
 
       2 ->
-        func.(object, opts)
+        func.(http_method, object)
+
+      3 ->
+        func.(http_method, object, opts)
 
       _ ->
         raise """
@@ -434,17 +438,18 @@ defmodule CloudCache.Adapters.S3.Sandbox do
   end
 
   @doc """
-  Returns the registered response function for `pre_sign_part/5` in the
+  Returns the registered response function for `pre_sign_part/6` in the
   context of the calling process.
   """
-  def pre_sign_part_response(bucket, object, upload_id, part_number, opts \\ []) do
+  def pre_sign_part_response(bucket, http_method, object, upload_id, part_number, opts \\ []) do
     doc_examples =
       [
         "fn -> ...",
         "fn (object) -> ...",
-        "fn (object, upload_id) -> ...",
-        "fn (object, upload_id, part_number) -> ...",
-        "fn (object, upload_id, part_number, options) -> ..."
+        "fn (http_method, object) -> ...",
+        "fn (http_method, object, upload_id) -> ...",
+        "fn (http_method, object, upload_id, part_number) -> ...",
+        "fn (http_method, object, upload_id, part_number, options) -> ..."
       ]
 
     func = find!(:pre_sign_part, bucket, doc_examples)
@@ -457,13 +462,16 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         func.(object)
 
       2 ->
-        func.(object, upload_id)
+        func.(http_method, object)
 
       3 ->
-        func.(object, upload_id, part_number)
+        func.(http_method, object, upload_id)
 
       4 ->
-        func.(object, upload_id, part_number, opts)
+        func.(http_method, object, upload_id, part_number)
+
+      5 ->
+        func.(http_method, object, upload_id, part_number, opts)
 
       _ ->
         raise """

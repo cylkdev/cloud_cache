@@ -67,7 +67,7 @@ defmodule CloudCache do
   ### Generating a Pre-Signed URL
 
   ```elixir
-  {:ok, url} = CloudCache.pre_sign("my-bucket", "path/to/object.txt", expires_in: 3600)
+  {:ok, url} = CloudCache.pre_sign("my-bucket", :post, "path/to/object.txt", expires_in: 3600)
   ```
 
   ## Adapters
@@ -203,10 +203,10 @@ defmodule CloudCache do
     |> Adapter.head_object(bucket, object, opts)
   end
 
-  def pre_sign(bucket, object, opts \\ []) do
+  def pre_sign(bucket, http_method \\ :post, object, opts \\ []) do
     opts
     |> adapter()
-    |> Adapter.pre_sign(bucket, object, opts)
+    |> Adapter.pre_sign(bucket, http_method, object, opts)
   end
 
   def delete_object(bucket, object, opts \\ []) do
@@ -235,10 +235,10 @@ defmodule CloudCache do
 
   # Multipart Upload API
 
-  def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
+  def pre_sign_part(bucket, http_method \\ :post, object, upload_id, part_number, opts \\ []) do
     opts
     |> adapter()
-    |> Adapter.pre_sign_part(bucket, object, upload_id, part_number, opts)
+    |> Adapter.pre_sign_part(bucket, http_method, object, upload_id, part_number, opts)
   end
 
   def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do

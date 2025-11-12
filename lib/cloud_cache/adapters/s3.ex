@@ -461,16 +461,14 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
-      iex> CloudCache.Adapters.S3.pre_sign("test-bucket", "test-object")
+      iex> CloudCache.Adapters.S3.pre_sign("test-bucket", :post, "test-object")
   """
-  def pre_sign(bucket, object, opts \\ []) do
+  def pre_sign(bucket, http_method \\ :post, object, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      http_method = opts[:http_method] || :put
-
       expires_in = opts[:expires_in] || @one_minute_seconds
       sign_opts = Keyword.put(opts, :expires_in, expires_in)
 
@@ -491,13 +489,14 @@ defmodule CloudCache.Adapters.S3 do
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :pre_sign,
+             http_method: http_method,
              bucket: bucket,
              object: object,
              reason: reason
            })}
       end
     else
-      sandbox_pre_sign_response(bucket, object, opts)
+      sandbox_pre_sign_response(bucket, http_method, object, opts)
     end
   end
 
@@ -507,9 +506,9 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
-      iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", "test-object", "test-upload-id", 1)
+      iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", :post, "test-object", "test-upload-id", 1)
   """
-  def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
+  def pre_sign_part(bucket, http_method \\ :post, object, upload_id, part_number, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
@@ -519,7 +518,7 @@ defmodule CloudCache.Adapters.S3 do
 
       sign_opts = Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
 
-      case pre_sign(bucket, object, sign_opts) do
+      case pre_sign(bucket, http_method, object, sign_opts) do
         {:error, %{details: details} = message} ->
           details =
             Map.merge(details || %{}, %{
@@ -533,7 +532,7 @@ defmodule CloudCache.Adapters.S3 do
           response
       end
     else
-      sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts)
+      sandbox_pre_sign_part_response(bucket, http_method, object, upload_id, part_number, opts)
     end
   end
 
@@ -1036,26 +1035,41 @@ defmodule CloudCache.Adapters.S3 do
 
         case ExAws.CredentialsIni.File.security_credentials(profile) do
           {:ok, credentials} ->
-            region = credentials.region
+            region = credentials[:region]
             access_key_id = credentials[:access_key_id]
             secret_access_key = credentials[:secret_access_key]
 
             if is_nil(access_key_id) do
-              raise "Access key ID is missing for profile #{profile}, got: #{inspect(credentials)}"
+              CloudCache.Logger.warning(
+                @logger_prefix,
+                "Access key ID is missing for profile #{profile}, got: #{inspect(credentials)}"
+              )
             end
 
             if is_nil(secret_access_key) do
-              raise "Secret access key is missing for profile #{profile}, got: #{inspect(credentials)}"
+              CloudCache.Logger.warning(
+                @logger_prefix,
+                "Secret access key is missing for profile #{profile}, got: #{inspect(credentials)}"
+              )
             end
 
-            if is_nil(region) do
-              raise "Region is missing for profile #{profile}, got: #{inspect(credentials)}"
-            end
+            opts =
+              if is_binary(access_key_id) and is_binary(secret_access_key) do
+                opts
+                |> Keyword.put(:access_key_id, access_key_id)
+                |> Keyword.put(:secret_access_key, secret_access_key)
+              else
+                opts
+              end
+
+            opts =
+              if is_binary(region) do
+                Keyword.put(opts, :region, region)
+              else
+                opts
+              end
 
             opts
-            |> Keyword.put(:region, region)
-            |> Keyword.put(:access_key_id, access_key_id)
-            |> Keyword.put(:secret_access_key, secret_access_key)
 
           {:error, reason} ->
             raise "Failed to fetch credentials for profile: #{profile}, reason: #{inspect(reason)}"
@@ -1230,7 +1244,7 @@ defmodule CloudCache.Adapters.S3 do
                 to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_object_response
 
-    defdelegate sandbox_pre_sign_response(bucket, object, opts),
+    defdelegate sandbox_pre_sign_response(bucket, http_method, object, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :pre_sign_response
 
@@ -1249,9 +1263,16 @@ defmodule CloudCache.Adapters.S3 do
                 to: CloudCache.Adapters.S3.Sandbox,
                 as: :upload_part_response
 
-    defdelegate sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts),
-      to: CloudCache.Adapters.S3.Sandbox,
-      as: :pre_sign_part_response
+    defdelegate sandbox_pre_sign_part_response(
+                  bucket,
+                  http_method,
+                  object,
+                  upload_id,
+                  part_number,
+                  opts
+                ),
+                to: CloudCache.Adapters.S3.Sandbox,
+                as: :pre_sign_part_response
 
     defdelegate sandbox_copy_object_multipart_response(
                   dest_bucket,
@@ -1388,11 +1409,12 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_pre_sign_response(bucket, object, opts) do
+    defp sandbox_pre_sign_response(bucket, http_method, object, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.pre_sign/3 outside of test.
 
       bucket: #{inspect(bucket)}
+      http_method: #{inspect(http_method)}
       object: #{inspect(object)}
       options: #{inspect(opts)}
       """
@@ -1429,11 +1451,12 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts) do
+    defp sandbox_pre_sign_part_response(bucket, http_method, object, upload_id, part_number, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.pre_sign_part/5 outside of test.
 
       bucket: #{inspect(bucket)}
+      http_method: #{inspect(http_method)}
       object: #{inspect(object)}
       upload_id: #{inspect(upload_id)}
       part_number: #{inspect(part_number)}
