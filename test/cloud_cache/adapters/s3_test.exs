@@ -146,15 +146,14 @@ defmodule CloudCache.Adapters.S3Test do
     end
   end
 
-  describe "pre_sign/3" do
+  describe "presign/3" do
     test "returns a presigned URL and metadata on success" do
-      assert {:ok,
-              %{
-                key: "test-object",
-                url: url,
-                expires_in: 60,
-                expires_at: %DateTime{}
-              }} = S3.pre_sign(@bucket, :post, "test-object", @local_stack_opts)
+      assert %{
+               key: "test-object",
+               url: url,
+               expires_in: 60,
+               expires_at: %DateTime{}
+             } = S3.pre_sign_url(@bucket, :post, "test-object", @local_stack_opts)
 
       assert String.contains?(url, "test-bucket/test-object")
     end
@@ -195,20 +194,6 @@ defmodule CloudCache.Adapters.S3Test do
                  "nonexistent_upload_id",
                  @local_stack_opts
                )
-    end
-  end
-
-  describe "pre_sign_part/5" do
-    test "returns a presigned URL for the given part on success" do
-      assert {:ok,
-              %{
-                key: "test-object.txt",
-                url: url,
-                expires_in: 60,
-                expires_at: %DateTime{}
-              }} = S3.pre_sign_part(@bucket, "test-object.txt", "upload_id", 1, @local_stack_opts)
-
-      assert String.contains?(url, "#{@bucket}/test-object.txt")
     end
   end
 

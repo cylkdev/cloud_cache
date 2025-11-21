@@ -30,25 +30,23 @@ defmodule CloudCache.Adapters.S3 do
 
   @logger_prefix "CloudCache.Adapters.S3"
 
+  @http_methods ~w(get post put patch delete head options trace connect)a
+
   @default_name __MODULE__
+
   @default_finch_name CloudCache.Adapters.S3.Finch
+
   @default_finch_opts [
     name: @default_finch_name,
     pools: %{
       default: [
-        # max connections per pool
         size: 32,
-        # number of pools (shards)
         count: 8,
-        # clean up idle per-host pools and connections pool terminates if unused for 2m
         pool_max_idle_time: 120_000,
-        # drop idle HTTP/1 sockets at 60s
         conn_max_idle_time: 60_000,
-        # S3 is HTTP/1 from client perspective
         conn_opts: [
           protocols: [:http1],
           transport_opts: [
-            # connect/TLS handshake timeout
             timeout: 20_000,
             keepalive: true
           ]
@@ -80,14 +78,18 @@ defmodule CloudCache.Adapters.S3 do
     access_key_id: "<CLOUD_CACHE_ADAPTERS_S3_ACCESS_KEY_ID>",
     secret_access_key: "<CLOUD_CACHE_ADAPTERS_S3_SECRET_ACCESS_KEY>",
     retries: [
-      max_attempts: 10,
+      max_attempts: 3,
       base_backoff_in_ms: 10,
       max_backoff_in_ms: 10_000
     ]
   ]
+
   @default_options [
     s3: @default_s3_options
   ]
+
+  @two_hundred_fifty_six 256
+  @two_gib 2 * 1_024 * 1_024 * 1_024
 
   @doc """
   Starts the S3 adapter.
@@ -214,35 +216,33 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.head_object("test-bucket", "test-object")
   """
-  def head_object(bucket, object, opts \\ []) do
+  def head_object(bucket, key, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      case bucket |> S3.head_object(object, opts) |> perform(opts) do
+      case bucket |> S3.head_object(key, opts) |> perform(opts) do
         {:ok, %{headers: headers}} ->
           {:ok, headers}
 
         {:error, %{status: status}} when status in 400..499 ->
           {:error,
            ErrorMessage.not_found("object not found", %{
-             function: :head_object,
              bucket: bucket,
-             object: object
+             key: key
            })}
 
         {:error, reason} ->
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
-             function: :head_object,
              bucket: bucket,
-             object: object,
+             key: key,
              reason: reason
            })}
       end
     else
-      sandbox_head_object_response(bucket, object, opts)
+      sandbox_head_object_response(bucket, key, opts)
     end
   end
 
@@ -254,14 +254,14 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.delete_object("test-bucket", "test-object")
   """
-  def delete_object(bucket, object, opts \\ []) do
+  def delete_object(bucket, key, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket
-           |> S3.delete_object(object, opts)
+           |> S3.delete_object(key, opts)
            |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body}
@@ -271,7 +271,7 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.not_found("object not found", %{
              function: :delete_object,
              bucket: bucket,
-             object: object,
+             key: key,
              reason: reason
            })}
 
@@ -280,12 +280,12 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :delete_object,
              bucket: bucket,
-             object: object,
+             key: key,
              reason: reason
            })}
       end
     else
-      sandbox_delete_object_response(bucket, object, opts)
+      sandbox_delete_object_response(bucket, key, opts)
     end
   end
 
@@ -297,14 +297,14 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.get_object("test-bucket", "test-object")
   """
-  def get_object(bucket, object, opts \\ []) do
+  def get_object(bucket, key, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket
-           |> S3.get_object(object, opts)
+           |> S3.get_object(key, opts)
            |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body}
@@ -314,7 +314,7 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.not_found("bucket not found", %{
              function: :get_object,
              bucket: bucket,
-             object: object,
+             key: key,
              reason: reason
            })}
 
@@ -323,12 +323,12 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :get_object,
              bucket: bucket,
-             object: object,
+             key: key,
              reason: reason
            })}
       end
     else
-      sandbox_get_object_response(bucket, object, opts)
+      sandbox_get_object_response(bucket, key, opts)
     end
   end
 
@@ -340,14 +340,14 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.put_object("test-bucket", "test-object", "test-body")
   """
-  def put_object(bucket, object, body, opts \\ []) do
+  def put_object(bucket, key, body, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case bucket
-           |> S3.put_object(object, body, opts)
+           |> S3.put_object(key, body, opts)
            |> perform(opts) do
         {:ok, %{headers: headers}} ->
           {:ok, headers}
@@ -357,7 +357,7 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.not_found("bucket not found", %{
              function: :put_object,
              bucket: bucket,
-             object: object,
+             key: key,
              body: body,
              reason: reason
            })}
@@ -367,13 +367,13 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :put_object,
              bucket: bucket,
-             object: object,
+             key: key,
              body: body,
              reason: reason
            })}
       end
     else
-      sandbox_put_object_response(bucket, object, body, opts)
+      sandbox_put_object_response(bucket, key, body, opts)
     end
   end
 
@@ -417,14 +417,14 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.copy_object("test-bucket", "test-object", "test-bucket", "test-object")
   """
-  def copy_object(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+  def copy_object(dest_bucket, dest_key, src_bucket, src_key, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       case dest_bucket
-           |> S3.put_object_copy(dest_object, src_bucket, src_object, opts)
+           |> S3.put_object_copy(dest_key, src_bucket, src_key, opts)
            |> perform(opts) do
         {:ok, %{body: body}} ->
           {:ok, body}
@@ -434,9 +434,9 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.not_found("object not found", %{
              function: :copy_object,
              dest_bucket: dest_bucket,
-             dest_object: dest_object,
+             dest_key: dest_key,
              src_bucket: src_bucket,
-             src_object: src_object
+             src_key: src_key
            })}
 
         {:error, reason} ->
@@ -444,14 +444,14 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :copy_object,
              dest_bucket: dest_bucket,
-             dest_object: dest_object,
+             dest_key: dest_key,
              src_bucket: src_bucket,
-             src_object: src_object,
+             src_key: src_key,
              reason: reason
            })}
       end
     else
-      sandbox_copy_object_response(dest_bucket, dest_object, src_bucket, src_object, opts)
+      sandbox_copy_object_response(dest_bucket, dest_key, src_bucket, src_key, opts)
     end
   end
 
@@ -463,40 +463,77 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.pre_sign("test-bucket", :post, "test-object")
   """
-  def pre_sign(bucket, http_method \\ :post, object, opts \\ []) do
+  def pre_sign(bucket, http_method, key, opts \\ []) when http_method in @http_methods do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       expires_in = opts[:expires_in] || @one_minute_seconds
-      sign_opts = Keyword.put(opts, :expires_in, expires_in)
+      opts = Keyword.put(opts, :expires_in, expires_in)
 
       case opts
            |> Keyword.get(:s3, [])
            |> config()
-           |> S3.presigned_url(http_method, bucket, object, sign_opts) do
+           |> ExAws.S3.presigned_url(http_method, bucket, key, opts) do
         {:ok, url} ->
-          {:ok,
-           %{
-             key: object,
-             url: url,
-             expires_in: expires_in,
-             expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
-           }}
+          %{
+            key: key,
+            url: url,
+            expires_in: expires_in,
+            expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
+          }
 
         {:error, reason} ->
-          {:error,
-           ErrorMessage.service_unavailable("service temporarily unavailable", %{
-             function: :pre_sign,
-             http_method: http_method,
-             bucket: bucket,
-             object: object,
-             reason: reason
-           })}
+          raise "Failed to generate presigned URL for object: #{inspect(reason)}"
       end
     else
-      sandbox_pre_sign_response(bucket, http_method, object, opts)
+      sandbox_pre_sign_response(bucket, http_method, key, opts)
+    end
+  end
+
+  @impl true
+  @doc """
+  Returns a presigned URL for an object.
+
+  ### Examples
+
+      iex> CloudCache.Adapters.S3.pre_sign_post("test-bucket", "test-object")
+  """
+  def pre_sign_post(bucket, key, opts \\ []) do
+    opts = Keyword.merge(@default_options, opts)
+
+    sandbox? = opts[:s3][:sandbox_enabled] === true
+
+    if not sandbox? or sandbox_disabled?() do
+      expires_in = opts[:expires_in] || @one_minute_seconds
+      opts = Keyword.put(opts, :expires_in, expires_in)
+
+      conditions =
+        [
+          ["eq", "$bucket", bucket],
+          ["eq", "$key", key]
+        ]
+
+      conditions =
+        case Keyword.get(opts, :content_type) do
+          nil -> conditions
+          content_type -> [["starts-with", "$Content-Type", content_type] | conditions]
+        end
+
+      min_size = Keyword.get(opts, :min_size, @two_hundred_fifty_six)
+      max_size = Keyword.get(opts, :max_size, @two_gib)
+
+      opts
+      |> Keyword.get(:s3, [])
+      |> config()
+      |> ExAws.S3.presigned_post(bucket, key,
+        expires_in: Keyword.get(opts, :expires_in, :expires),
+        content_length_range: [min_size, max_size],
+        custom_conditions: conditions
+      )
+    else
+      sandbox_pre_sign_post_response(bucket, key, opts)
     end
   end
 
@@ -506,33 +543,23 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
-      iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", :post, "test-object", "test-upload-id", 1)
+      iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", "test-object", "test-upload-id", 1)
   """
-  def pre_sign_part(bucket, http_method \\ :post, object, upload_id, part_number, opts \\ []) do
+  def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
-
-      sign_opts = Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
-
-      case pre_sign(bucket, http_method, object, sign_opts) do
-        {:error, %{details: details} = message} ->
-          details =
-            Map.merge(details || %{}, %{
-              upload_id: upload_id,
-              part_number: part_number
-            })
-
-          {:error, %{message | details: details}}
-
-        {:ok, _} = response ->
-          response
+      if Keyword.get(opts, :http_method, :post) === :post do
+        pre_sign_post(bucket, object, opts)
+      else
+        query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
+        opts = Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
+        pre_sign(bucket, :put, object, opts)
       end
     else
-      sandbox_pre_sign_part_response(bucket, http_method, object, upload_id, part_number, opts)
+      sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts)
     end
   end
 
@@ -544,7 +571,7 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.list_parts("test-bucket", "test-object", "test-upload-id")
   """
-  def list_parts(bucket, object, upload_id, opts \\ []) do
+  def list_parts(bucket, key, upload_id, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
@@ -562,7 +589,7 @@ defmodule CloudCache.Adapters.S3 do
         end
 
       bucket
-      |> S3.list_parts(object, upload_id, list_parts_opts)
+      |> S3.list_parts(key, upload_id, list_parts_opts)
       |> perform(opts)
       |> then(fn
         {:ok, %{body: %{parts: parts}}} ->
@@ -573,7 +600,7 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.not_found("object not found", %{
              function: :list_parts,
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id
            })}
 
@@ -582,13 +609,13 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :list_parts,
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id,
              reason: reason
            })}
       end)
     else
-      sandbox_list_parts_response(bucket, object, upload_id, opts)
+      sandbox_list_parts_response(bucket, key, upload_id, opts)
     end
   end
 
@@ -600,14 +627,14 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.upload_part("test-bucket", "test-object", "test-upload-id", 1, "test-body")
   """
-  def upload_part(bucket, object, upload_id, part_number, body, opts \\ []) do
+  def upload_part(bucket, key, upload_id, part_number, body, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
-      |> S3.upload_part(object, upload_id, part_number, body, opts)
+      |> S3.upload_part(key, upload_id, part_number, body, opts)
       |> perform(opts)
       |> then(fn
         {:ok, %{headers: headers}} ->
@@ -618,7 +645,7 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.not_found("object not found", %{
              function: :upload_part,
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id,
              part_number: part_number,
              body: body
@@ -629,7 +656,7 @@ defmodule CloudCache.Adapters.S3 do
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              function: :upload_part,
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id,
              part_number: part_number,
              body: body,
@@ -637,7 +664,7 @@ defmodule CloudCache.Adapters.S3 do
            })}
       end)
     else
-      sandbox_upload_part_response(bucket, object, upload_id, part_number, body, opts)
+      sandbox_upload_part_response(bucket, key, upload_id, part_number, body, opts)
     end
   end
 
@@ -649,27 +676,27 @@ defmodule CloudCache.Adapters.S3 do
 
       iex> CloudCache.Adapters.S3.copy_object_multipart("test-bucket", "test-object", "test-bucket", "test-object")
   """
-  def copy_object_multipart(dest_bucket, dest_object, src_bucket, src_object, opts \\ []) do
+  def copy_object_multipart(dest_bucket, dest_key, src_bucket, src_key, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      with {:ok, info} <- head_object(src_bucket, src_object, opts),
-           {:ok, mpu} <- create_multipart_upload(dest_bucket, dest_object, opts),
+      with {:ok, info} <- head_object(src_bucket, src_key, opts),
+           {:ok, mpu} <- create_multipart_upload(dest_bucket, dest_key, opts),
            {:ok, parts} <-
              copy_parts(
                dest_bucket,
-               dest_object,
+               dest_key,
                src_bucket,
-               src_object,
+               src_key,
                mpu.upload_id,
                info.content_length,
                opts
              ) do
         complete_multipart_upload(
           dest_bucket,
-          dest_object,
+          dest_key,
           mpu.upload_id,
           parts,
           opts
@@ -678,9 +705,9 @@ defmodule CloudCache.Adapters.S3 do
     else
       sandbox_copy_object_multipart_response(
         dest_bucket,
-        dest_object,
+        dest_key,
         src_bucket,
-        src_object,
+        src_key,
         opts
       )
     end
@@ -696,9 +723,9 @@ defmodule CloudCache.Adapters.S3 do
   """
   def copy_parts(
         dest_bucket,
-        dest_object,
+        dest_key,
         src_bucket,
-        src_object,
+        src_key,
         upload_id,
         content_length,
         opts \\ []
@@ -726,9 +753,9 @@ defmodule CloudCache.Adapters.S3 do
           async_stream_task_copy_part(
             {{start_byte, end_byte}, part_num},
             dest_bucket,
-            dest_object,
+            dest_key,
             src_bucket,
-            src_object,
+            src_key,
             upload_id,
             content_length,
             opts
@@ -757,9 +784,9 @@ defmodule CloudCache.Adapters.S3 do
     else
       sandbox_copy_parts_response(
         dest_bucket,
-        dest_object,
+        dest_key,
         src_bucket,
-        src_object,
+        src_key,
         upload_id,
         content_length,
         opts
@@ -770,9 +797,9 @@ defmodule CloudCache.Adapters.S3 do
   defp async_stream_task_copy_part(
          {{start_byte, end_byte}, part_num},
          dest_bucket,
-         dest_object,
+         dest_key,
          src_bucket,
-         src_object,
+         src_key,
          upload_id,
          content_length,
          opts
@@ -787,9 +814,9 @@ defmodule CloudCache.Adapters.S3 do
       end_byte: #{inspect(end_byte)}
 
       dest_bucket: #{inspect(dest_bucket)}
-      dest_object: #{inspect(dest_object)}
+      dest_key: #{inspect(dest_key)}
       src_bucket: #{inspect(src_bucket)}
-      src_object: #{inspect(src_object)}
+      src_key: #{inspect(src_key)}
       upload_id: #{inspect(upload_id)}
       content_length: #{inspect(content_length)}
       """
@@ -797,9 +824,9 @@ defmodule CloudCache.Adapters.S3 do
 
     case copy_part(
            dest_bucket,
-           dest_object,
+           dest_key,
            src_bucket,
-           src_object,
+           src_key,
            upload_id,
            part_num,
            start_byte..end_byte,
@@ -835,9 +862,9 @@ defmodule CloudCache.Adapters.S3 do
   """
   def copy_part(
         dest_bucket,
-        dest_object,
+        dest_key,
         src_bucket,
-        src_object,
+        src_key,
         upload_id,
         part_number,
         src_range,
@@ -850,9 +877,9 @@ defmodule CloudCache.Adapters.S3 do
     if not sandbox? or sandbox_disabled?() do
       dest_bucket
       |> S3.upload_part_copy(
-        dest_object,
+        dest_key,
         src_bucket,
-        src_object,
+        src_key,
         upload_id,
         part_number,
         src_range,
@@ -867,9 +894,9 @@ defmodule CloudCache.Adapters.S3 do
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              dest_bucket: dest_bucket,
-             dest_object: dest_object,
+             dest_key: dest_key,
              src_bucket: src_bucket,
-             src_object: src_object,
+             src_key: src_key,
              src_range: src_range,
              upload_id: upload_id,
              part_number: part_number,
@@ -879,9 +906,9 @@ defmodule CloudCache.Adapters.S3 do
     else
       sandbox_copy_part_response(
         dest_bucket,
-        dest_object,
+        dest_key,
         src_bucket,
-        src_object,
+        src_key,
         upload_id,
         part_number,
         src_range,
@@ -891,14 +918,14 @@ defmodule CloudCache.Adapters.S3 do
   end
 
   @impl true
-  def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
+  def complete_multipart_upload(bucket, key, upload_id, parts, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
-      |> S3.complete_multipart_upload(object, upload_id, validate_parts!(parts))
+      |> S3.complete_multipart_upload(key, upload_id, validate_parts!(parts))
       |> perform(opts)
       |> then(fn
         {:ok, %{body: body}} ->
@@ -908,7 +935,7 @@ defmodule CloudCache.Adapters.S3 do
           {:error,
            ErrorMessage.not_found("multipart upload not found.", %{
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id
            })}
 
@@ -916,26 +943,26 @@ defmodule CloudCache.Adapters.S3 do
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id,
              parts: parts,
              reason: reason
            })}
       end)
     else
-      sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts)
+      sandbox_complete_multipart_upload_response(bucket, key, upload_id, parts, opts)
     end
   end
 
   @impl true
-  def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
+  def abort_multipart_upload(bucket, key, upload_id, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
       bucket
-      |> S3.abort_multipart_upload(object, upload_id)
+      |> S3.abort_multipart_upload(key, upload_id)
       |> perform(opts)
       |> then(fn
         {:ok, %{headers: headers}} ->
@@ -945,25 +972,35 @@ defmodule CloudCache.Adapters.S3 do
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              bucket: bucket,
-             object: object,
+             key: key,
              upload_id: upload_id,
              reason: reason
            })}
       end)
     else
-      sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts)
+      sandbox_abort_multipart_upload_response(bucket, key, upload_id, opts)
     end
   end
 
   @impl true
-  def create_multipart_upload(bucket, object, opts) do
+  def create_multipart_upload(bucket, key, opts) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
+    one_min_from_now = DateTime.add(DateTime.utc_now(), 1, :minute)
+    expiry = to_http_date(one_min_from_now)
+
+    opts =
+      Keyword.update(opts, :expires, expiry, fn
+        nil -> expiry
+        %DateTime{} = datetime -> to_http_date(datetime)
+        expires -> expires
+      end)
+
     if not sandbox? or sandbox_disabled?() do
       bucket
-      |> S3.initiate_multipart_upload(object, opts)
+      |> S3.initiate_multipart_upload(key, opts)
       |> perform(opts)
       |> then(fn
         {:ok, %{body: body}} ->
@@ -973,16 +1010,23 @@ defmodule CloudCache.Adapters.S3 do
           {:error,
            ErrorMessage.service_unavailable("service temporarily unavailable", %{
              bucket: bucket,
-             object: object,
+             key: key,
              reason: reason
            })}
       end)
     else
-      sandbox_create_multipart_upload_response(bucket, object, opts)
+      sandbox_create_multipart_upload_response(bucket, key, opts)
     end
   end
 
   # Helper API
+
+  defp to_http_date(datetime) do
+    datetime
+    |> DateTime.to_unix(:second)
+    |> DateTime.from_unix!()
+    |> Calendar.strftime("%a, %d %b %Y %H:%M:%S GMT")
+  end
 
   defp validate_parts!(entries) do
     Enum.map(entries, fn
@@ -1210,19 +1254,19 @@ defmodule CloudCache.Adapters.S3 do
       to: CloudCache.Adapters.S3.Sandbox,
       as: :list_buckets_response
 
-    defdelegate sandbox_head_object_response(bucket, object, opts),
+    defdelegate sandbox_head_object_response(bucket, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :head_object_response
 
-    defdelegate sandbox_delete_object_response(bucket, object, opts),
+    defdelegate sandbox_delete_object_response(bucket, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :delete_object_response
 
-    defdelegate sandbox_get_object_response(bucket, object, opts),
+    defdelegate sandbox_get_object_response(bucket, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :get_object_response
 
-    defdelegate sandbox_put_object_response(bucket, object, body, opts),
+    defdelegate sandbox_put_object_response(bucket, key, body, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :put_object_response
 
@@ -1236,25 +1280,39 @@ defmodule CloudCache.Adapters.S3 do
 
     defdelegate sandbox_copy_object_response(
                   dest_bucket,
-                  dest_object,
+                  dest_key,
                   src_bucket,
-                  src_object,
+                  src_key,
                   opts
                 ),
                 to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_object_response
 
-    defdelegate sandbox_pre_sign_response(bucket, http_method, object, opts),
+    defdelegate sandbox_pre_sign_response(bucket, http_method, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :pre_sign_response
 
-    defdelegate sandbox_list_parts_response(bucket, object, upload_id, opts),
+    defdelegate sandbox_pre_sign_part_response(
+                  bucket,
+                  key,
+                  upload_id,
+                  part_number,
+                  opts
+                ),
+                to: CloudCache.Adapters.S3.Sandbox,
+                as: :pre_sign_part_response
+
+    defdelegate sandbox_pre_sign_post_response(bucket, key, opts),
+      to: CloudCache.Adapters.S3.Sandbox,
+      as: :pre_sign_post_response
+
+    defdelegate sandbox_list_parts_response(bucket, key, upload_id, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :list_parts_response
 
     defdelegate sandbox_upload_part_response(
                   bucket,
-                  object,
+                  key,
                   upload_id,
                   part_number,
                   body,
@@ -1263,22 +1321,11 @@ defmodule CloudCache.Adapters.S3 do
                 to: CloudCache.Adapters.S3.Sandbox,
                 as: :upload_part_response
 
-    defdelegate sandbox_pre_sign_part_response(
-                  bucket,
-                  http_method,
-                  object,
-                  upload_id,
-                  part_number,
-                  opts
-                ),
-                to: CloudCache.Adapters.S3.Sandbox,
-                as: :pre_sign_part_response
-
     defdelegate sandbox_copy_object_multipart_response(
                   dest_bucket,
-                  dest_object,
+                  dest_key,
                   src_bucket,
-                  src_object,
+                  src_key,
                   opts
                 ),
                 to: CloudCache.Adapters.S3.Sandbox,
@@ -1286,9 +1333,9 @@ defmodule CloudCache.Adapters.S3 do
 
     defdelegate sandbox_copy_parts_response(
                   dest_bucket,
-                  dest_object,
+                  dest_key,
                   src_bucket,
-                  src_object,
+                  src_key,
                   upload_id,
                   content_length,
                   opts
@@ -1298,9 +1345,9 @@ defmodule CloudCache.Adapters.S3 do
 
     defdelegate sandbox_copy_part_response(
                   dest_bucket,
-                  dest_object,
+                  dest_key,
                   src_bucket,
-                  src_object,
+                  src_key,
                   upload_id,
                   part_number,
                   range,
@@ -1311,7 +1358,7 @@ defmodule CloudCache.Adapters.S3 do
 
     defdelegate sandbox_complete_multipart_upload_response(
                   bucket,
-                  object,
+                  key,
                   upload_id,
                   parts,
                   opts
@@ -1319,11 +1366,11 @@ defmodule CloudCache.Adapters.S3 do
                 to: CloudCache.Adapters.S3.Sandbox,
                 as: :complete_multipart_upload_response
 
-    defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts),
+    defdelegate sandbox_abort_multipart_upload_response(bucket, key, upload_id, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :abort_multipart_upload_response
 
-    defdelegate sandbox_create_multipart_upload_response(bucket, object, opts),
+    defdelegate sandbox_create_multipart_upload_response(bucket, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
       as: :create_multipart_upload_response
   else
@@ -1347,42 +1394,42 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_head_object_response(bucket, object, opts) do
+    defp sandbox_head_object_response(bucket, key, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.head_object/3 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_delete_object_response(bucket, object, opts) do
+    defp sandbox_delete_object_response(bucket, key, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.delete_object/3 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_get_object_response(bucket, object, opts) do
+    defp sandbox_get_object_response(bucket, key, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.copy_object/5 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_put_object_response(bucket, object, body, opts) do
+    defp sandbox_put_object_response(bucket, key, body, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.copy_object/5 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       body: #{inspect(body)}
       options: #{inspect(opts)}
       """
@@ -1397,35 +1444,57 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_copy_object_response(dest_bucket, dest_object, src_bucket, src_object, opts) do
+    defp sandbox_copy_object_response(dest_bucket, dest_key, src_bucket, src_key, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.copy_object/5 outside of test.
 
       dest_bucket: #{inspect(dest_bucket)}
-      dest_object: #{inspect(dest_object)}
+      dest_key: #{inspect(dest_key)}
       src_bucket: #{inspect(src_bucket)}
-      src_object: #{inspect(src_object)}
+      src_key: #{inspect(src_key)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_pre_sign_response(bucket, http_method, object, opts) do
+    defp sandbox_pre_sign_response(bucket, http_method, key, opts) do
       raise """
-      Cannot use #{inspect(__MODULE__)}.pre_sign/3 outside of test.
+      Cannot use #{inspect(__MODULE__)}.presign/3 outside of test.
 
       bucket: #{inspect(bucket)}
       http_method: #{inspect(http_method)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_list_parts_response(bucket, object, upload_id, opts) do
+    defp sandbox_pre_sign_post_response(bucket, key, opts) do
+      raise """
+      Cannot use #{inspect(__MODULE__)}.pre_sign_post/3 outside of test.
+
+      bucket: #{inspect(bucket)}
+      key: #{inspect(key)}
+      options: #{inspect(opts)}
+      """
+    end
+
+    defp sandbox_pre_sign_part_response(bucket, key, upload_id, part_number, opts) do
+      raise """
+      Cannot use #{inspect(__MODULE__)}.pre_sign_part/5 outside of test.
+
+      bucket: #{inspect(bucket)}
+      key: #{inspect(key)}
+      upload_id: #{inspect(upload_id)}
+      part_number: #{inspect(part_number)}
+      options: #{inspect(opts)}
+      """
+    end
+
+    defp sandbox_list_parts_response(bucket, key, upload_id, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.list_parts/4 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       upload_id: #{inspect(upload_id)}
       options: #{inspect(opts)}
       """
@@ -1433,7 +1502,7 @@ defmodule CloudCache.Adapters.S3 do
 
     defp sandbox_upload_part_response(
            bucket,
-           object,
+           key,
            upload_id,
            part_number,
            body,
@@ -1443,7 +1512,7 @@ defmodule CloudCache.Adapters.S3 do
       Cannot use #{inspect(__MODULE__)}.copy_part/8 outside of test.
 
       bucket: #{inspect(bucket)},
-      object: #{inspect(object)},
+      key: #{inspect(key)},
       upload_id: #{inspect(upload_id)},
       part_number: #{inspect(part_number)},
       body: #{inspect(body)},
@@ -1451,42 +1520,29 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_pre_sign_part_response(bucket, http_method, object, upload_id, part_number, opts) do
-      raise """
-      Cannot use #{inspect(__MODULE__)}.pre_sign_part/5 outside of test.
-
-      bucket: #{inspect(bucket)}
-      http_method: #{inspect(http_method)}
-      object: #{inspect(object)}
-      upload_id: #{inspect(upload_id)}
-      part_number: #{inspect(part_number)}
-      options: #{inspect(opts)}
-      """
-    end
-
     defp sandbox_copy_object_multipart_response(
            dest_bucket,
-           dest_object,
+           dest_key,
            src_bucket,
-           src_object,
+           src_key,
            opts
          ) do
       raise """
       Cannot use #{inspect(__MODULE__)}.copy_object_multipart/5 outside of test.
 
       dest_bucket: #{inspect(dest_bucket)}
-      dest_object: #{inspect(dest_object)}
+      dest_key: #{inspect(dest_key)}
       src_bucket: #{inspect(src_bucket)}
-      src_object: #{inspect(src_object)}
+      src_key: #{inspect(src_key)}
       options: #{inspect(opts, pretty: true)}
       """
     end
 
     defp sandbox_copy_parts_response(
            dest_bucket,
-           dest_object,
+           dest_key,
            src_bucket,
-           src_object,
+           src_key,
            upload_id,
            content_length,
            opts
@@ -1495,9 +1551,9 @@ defmodule CloudCache.Adapters.S3 do
       Cannot use #{inspect(__MODULE__)}.copy_parts/7 outside of test.
 
       dest_bucket: #{inspect(dest_bucket)}
-      dest_object: #{inspect(dest_object)}
+      dest_key: #{inspect(dest_key)}
       src_bucket: #{inspect(src_bucket)}
-      src_object: #{inspect(src_object)}
+      src_key: #{inspect(src_key)}
         upload_id: #{inspect(upload_id)}
       content_length: #{inspect(content_length)}
       options: #{inspect(opts, pretty: true)}
@@ -1506,9 +1562,9 @@ defmodule CloudCache.Adapters.S3 do
 
     defp sandbox_copy_part_response(
            dest_bucket,
-           dest_object,
+           dest_key,
            src_bucket,
-           src_object,
+           src_key,
            upload_id,
            part_number,
            range,
@@ -1518,9 +1574,9 @@ defmodule CloudCache.Adapters.S3 do
       Cannot use #{inspect(__MODULE__)}.copy_part/8 outside of test.
 
       dest_bucket: #{inspect(dest_bucket)}
-      dest_object: #{inspect(dest_object)}
+      dest_key: #{inspect(dest_key)}
       src_bucket: #{inspect(src_bucket)}
-      src_object: #{inspect(src_object)}
+      src_key: #{inspect(src_key)}
       upload_id: #{inspect(upload_id)}
       part_number: #{inspect(part_number)}
       range: #{inspect(range)}
@@ -1528,35 +1584,35 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts) do
+    defp sandbox_complete_multipart_upload_response(bucket, key, upload_id, parts, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.complete_multipart_upload/5 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       upload_id: #{inspect(upload_id)}
       parts: #{inspect(parts)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts) do
+    defp sandbox_abort_multipart_upload_response(bucket, key, upload_id, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.abort_multipart_upload/4 outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       upload_id: #{inspect(upload_id)}
       options: #{inspect(opts)}
       """
     end
 
-    defp sandbox_create_multipart_upload_response(bucket, object, opts) do
+    defp sandbox_create_multipart_upload_response(bucket, key, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)} outside of test.
 
       bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
+      key: #{inspect(key)}
       options: #{inspect(opts)}
       """
     end

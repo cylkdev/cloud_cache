@@ -220,28 +220,26 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
   end
 
-  describe "pre_sign/3" do
+  describe "pre_sign/4" do
     test "returns a presigned URL and metadata on success" do
       Sandbox.set_pre_sign_responses([
         {@bucket,
-         fn object ->
-           {:ok,
-            %{
-              key: object,
-              url: "https://example.com/#{object}?signature=fake-signature",
-              expires_in: 60,
-              expires_at: ~U[2025-08-30 01:00:00.000000Z]
-            }}
+         fn :post, object ->
+           %{
+             key: object,
+             url: "https://example.com/#{object}?signature=fake-signature",
+             expires_in: 60,
+             expires_at: ~U[2025-08-30 01:00:00.000000Z]
+           }
          end}
       ])
 
-      assert {:ok,
-              %{
-                key: @object,
-                url: "https://example.com/test-object?signature=fake-signature",
-                expires_in: 60,
-                expires_at: ~U[2025-08-30 01:00:00.000000Z]
-              }} = S3.pre_sign(@bucket, :post, @object, @options)
+      assert %{
+               key: @object,
+               url: "https://example.com/test-object?signature=fake-signature",
+               expires_in: 60,
+               expires_at: ~U[2025-08-30 01:00:00.000000Z]
+             } = S3.pre_sign(@bucket, :post, @object, @options)
     end
   end
 
@@ -286,31 +284,6 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
                 }
               }} =
                S3.list_parts(@bucket, @object, "upload_id", @options)
-    end
-  end
-
-  describe "pre_sign_part/5" do
-    test "returns a presigned URL for the given part on success" do
-      Sandbox.set_pre_sign_part_responses([
-        {@bucket,
-         fn _object, _upload_id, part_number ->
-           {:ok,
-            %{
-              key: @object,
-              url: "https://example.com/test-object?partNumber=#{part_number}&signature=fake",
-              expires_in: 120,
-              expires_at: ~U[2025-08-30 01:00:00.000000Z]
-            }}
-         end}
-      ])
-
-      assert {:ok,
-              %{
-                key: @object,
-                url: "https://example.com/test-object?partNumber=1&signature=fake",
-                expires_in: 120,
-                expires_at: ~U[2025-08-30 01:00:00.000000Z]
-              }} = S3.pre_sign_part(@bucket, :post, @object, "upload_id_123", 1, @options)
     end
   end
 

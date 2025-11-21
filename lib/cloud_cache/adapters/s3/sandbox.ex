@@ -13,7 +13,119 @@ defmodule CloudCache.Adapters.S3.Sandbox do
     Registry.start_link(keys: @keys, name: @registry)
   end
 
-  @spec head_object_response(any(), any()) :: any()
+  @doc """
+  Returns the registered response function for `presign/4` in the
+  context of the calling process.
+  """
+  def pre_sign_response(bucket, http_method, object, opts) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (http_method) -> ...",
+        "fn (http_method, object) -> ...",
+        "fn (http_method, object, options) -> ..."
+      ]
+
+    func = find!(:pre_sign, bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(http_method)
+
+      2 ->
+        func.(http_method, object)
+
+      3 ->
+        func.(http_method, object, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
+  @doc """
+  Returns the registered response function for `presign/4` in the
+  context of the calling process.
+  """
+  def pre_sign_post_response(bucket, object, opts \\ []) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (object) -> ...",
+        "fn (object, options) -> ..."
+      ]
+
+    func = find!(:pre_sign_post, bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
+  def pre_sign_part_response(bucket, object, upload_id, part_number, opts \\ []) do
+    doc_examples =
+      [
+        "fn -> ...",
+        "fn (object) -> ...",
+        "fn (object, upload_id) -> ...",
+        "fn (object, upload_id, part_number) -> ...",
+        "fn (object, upload_id, part_number, options) -> ..."
+      ]
+
+    func = find!(:pre_sign_part, bucket, doc_examples)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, upload_id)
+
+      3 ->
+        func.(object, upload_id, part_number)
+
+      4 ->
+        func.(object, upload_id, part_number, opts)
+
+      _ ->
+        raise """
+        This function's signature is not supported: #{inspect(func)}
+
+        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
+
+        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
+        """
+    end
+  end
+
   @doc """
   Returns the registered response function for `head_object/3` in the
   context of the calling process.
@@ -306,45 +418,6 @@ defmodule CloudCache.Adapters.S3.Sandbox do
   end
 
   @doc """
-  Returns the registered response function for `pre_sign/4` in the
-  context of the calling process.
-  """
-  def pre_sign_response(bucket, http_method, object, opts \\ []) do
-    doc_examples =
-      [
-        "fn -> ...",
-        "fn (object) -> ...",
-        "fn (http_method, object) -> ...",
-        "fn (http_method, object, options) -> ..."
-      ]
-
-    func = find!(:pre_sign, bucket, doc_examples)
-
-    case :erlang.fun_info(func)[:arity] do
-      0 ->
-        func.()
-
-      1 ->
-        func.(object)
-
-      2 ->
-        func.(http_method, object)
-
-      3 ->
-        func.(http_method, object, opts)
-
-      _ ->
-        raise """
-        This function's signature is not supported: #{inspect(func)}
-
-        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
-
-        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
-        """
-    end
-  end
-
-  @doc """
   Returns the registered response function for `list_parts/4` in the
   context of the calling process.
   """
@@ -425,53 +498,6 @@ defmodule CloudCache.Adapters.S3.Sandbox do
 
       5 ->
         func.(object, upload_id, part_number, body, opts)
-
-      _ ->
-        raise """
-        This function's signature is not supported: #{inspect(func)}
-
-        Please provide a function with one of the following arities (0-#{length(doc_examples) - 1}):
-
-        #{Enum.map_join(doc_examples, "\n", &("    " <> &1))}
-        """
-    end
-  end
-
-  @doc """
-  Returns the registered response function for `pre_sign_part/6` in the
-  context of the calling process.
-  """
-  def pre_sign_part_response(bucket, http_method, object, upload_id, part_number, opts \\ []) do
-    doc_examples =
-      [
-        "fn -> ...",
-        "fn (object) -> ...",
-        "fn (http_method, object) -> ...",
-        "fn (http_method, object, upload_id) -> ...",
-        "fn (http_method, object, upload_id, part_number) -> ...",
-        "fn (http_method, object, upload_id, part_number, options) -> ..."
-      ]
-
-    func = find!(:pre_sign_part, bucket, doc_examples)
-
-    case :erlang.fun_info(func)[:arity] do
-      0 ->
-        func.()
-
-      1 ->
-        func.(object)
-
-      2 ->
-        func.(http_method, object)
-
-      3 ->
-        func.(http_method, object, upload_id)
-
-      4 ->
-        func.(http_method, object, upload_id, part_number)
-
-      5 ->
-        func.(http_method, object, upload_id, part_number, opts)
 
       _ ->
         raise """
@@ -830,6 +856,18 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         end}
       ])
   """
+  def set_pre_sign_responses(tuples) do
+    set_responses(:pre_sign, tuples)
+  end
+
+  def set_pre_sign_part_responses(tuples) do
+    set_responses(:pre_sign_part, tuples)
+  end
+
+  def set_pre_sign_post_responses(tuples) do
+    set_responses(:pre_sign_post, tuples)
+  end
+
   def set_list_buckets_responses(funcs) do
     set_responses(:list_buckets, Enum.map(funcs, fn f -> {"*", f} end))
   end
@@ -862,20 +900,12 @@ defmodule CloudCache.Adapters.S3.Sandbox do
     set_responses(:copy_object, tuples)
   end
 
-  def set_pre_sign_responses(tuples) do
-    set_responses(:pre_sign, tuples)
-  end
-
   def set_list_parts_responses(tuples) do
     set_responses(:list_parts, tuples)
   end
 
   def set_upload_part_responses(tuples) do
     set_responses(:upload_part, tuples)
-  end
-
-  def set_pre_sign_part_responses(tuples) do
-    set_responses(:pre_sign_part, tuples)
   end
 
   def set_copy_object_multipart_responses(tuples) do
