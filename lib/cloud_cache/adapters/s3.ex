@@ -551,13 +551,9 @@ defmodule CloudCache.Adapters.S3 do
     sandbox? = opts[:s3][:sandbox_enabled] === true
 
     if not sandbox? or sandbox_disabled?() do
-      if Keyword.get(opts, :http_method, :post) === :post do
-        pre_sign_post(bucket, object, opts)
-      else
-        query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
-        opts = Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
-        pre_sign(bucket, :put, object, opts)
-      end
+      query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
+      opts = Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
+      pre_sign(bucket, :put, object, opts)
     else
       sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts)
     end
