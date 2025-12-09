@@ -153,7 +153,7 @@ defmodule CloudCache.Adapters.S3Test do
                url: url,
                expires_in: 60,
                expires_at: %DateTime{}
-             } = S3.pre_sign_url(@bucket, :post, "test-object", @local_stack_opts)
+             } = S3.presign_url(@bucket, :post, "test-object", @local_stack_opts)
 
       assert String.contains?(url, "test-bucket/test-object")
     end

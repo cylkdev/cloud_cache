@@ -17,7 +17,7 @@ defmodule CloudCache.Adapters.S3.Sandbox do
   Returns the registered response function for `presign/4` in the
   context of the calling process.
   """
-  def pre_sign_response(bucket, http_method, object, opts) do
+  def presign_response(bucket, http_method, object, opts) do
     doc_examples =
       [
         "fn -> ...",
@@ -26,7 +26,7 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         "fn (http_method, object, options) -> ..."
       ]
 
-    func = find!(:pre_sign, bucket, doc_examples)
+    func = find!(:presign, bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -56,7 +56,7 @@ defmodule CloudCache.Adapters.S3.Sandbox do
   Returns the registered response function for `presign/4` in the
   context of the calling process.
   """
-  def pre_sign_post_response(bucket, object, opts \\ []) do
+  def presign_post_response(bucket, object, opts \\ []) do
     doc_examples =
       [
         "fn -> ...",
@@ -64,7 +64,7 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         "fn (object, options) -> ..."
       ]
 
-    func = find!(:pre_sign_post, bucket, doc_examples)
+    func = find!(:presign_post, bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -87,7 +87,7 @@ defmodule CloudCache.Adapters.S3.Sandbox do
     end
   end
 
-  def pre_sign_part_response(bucket, object, upload_id, part_number, opts \\ []) do
+  def presign_part_response(bucket, object, upload_id, part_number, opts \\ []) do
     doc_examples =
       [
         "fn -> ...",
@@ -97,7 +97,7 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         "fn (object, upload_id, part_number, options) -> ..."
       ]
 
-    func = find!(:pre_sign_part, bucket, doc_examples)
+    func = find!(:presign_part, bucket, doc_examples)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -856,16 +856,16 @@ defmodule CloudCache.Adapters.S3.Sandbox do
         end}
       ])
   """
-  def set_pre_sign_responses(tuples) do
-    set_responses(:pre_sign, tuples)
+  def set_presign_responses(tuples) do
+    set_responses(:presign, tuples)
   end
 
-  def set_pre_sign_part_responses(tuples) do
-    set_responses(:pre_sign_part, tuples)
+  def set_presign_part_responses(tuples) do
+    set_responses(:presign_part, tuples)
   end
 
-  def set_pre_sign_post_responses(tuples) do
-    set_responses(:pre_sign_post, tuples)
+  def set_presign_post_responses(tuples) do
+    set_responses(:presign_post, tuples)
   end
 
   def set_list_buckets_responses(funcs) do

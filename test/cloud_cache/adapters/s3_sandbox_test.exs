@@ -220,9 +220,9 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
     end
   end
 
-  describe "pre_sign/4" do
+  describe "presign/4" do
     test "returns a presigned URL and metadata on success" do
-      Sandbox.set_pre_sign_responses([
+      Sandbox.set_presign_responses([
         {@bucket,
          fn :post, object ->
            %{
@@ -239,7 +239,7 @@ defmodule CloudCache.Adapters.S3.SandboxTest do
                url: "https://example.com/test-object?signature=fake-signature",
                expires_in: 60,
                expires_at: ~U[2025-08-30 01:00:00.000000Z]
-             } = S3.pre_sign(@bucket, :post, @object, @options)
+             } = S3.presign(@bucket, :post, @object, @options)
     end
   end
 

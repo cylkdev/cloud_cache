@@ -461,9 +461,9 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
-      iex> CloudCache.Adapters.S3.pre_sign("test-bucket", :post, "test-object")
+      iex> CloudCache.Adapters.S3.presign("test-bucket", :post, "test-object")
   """
-  def pre_sign(bucket, http_method, key, opts \\ []) when http_method in @http_methods do
+  def presign(bucket, http_method, key, opts \\ []) when http_method in @http_methods do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
@@ -488,7 +488,7 @@ defmodule CloudCache.Adapters.S3 do
           raise "Failed to generate presigned URL for object: #{inspect(reason)}"
       end
     else
-      sandbox_pre_sign_response(bucket, http_method, key, opts)
+      sandbox_presign_response(bucket, http_method, key, opts)
     end
   end
 
@@ -498,9 +498,9 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
-      iex> CloudCache.Adapters.S3.pre_sign_post("test-bucket", "test-object")
+      iex> CloudCache.Adapters.S3.presign_post("test-bucket", "test-object")
   """
-  def pre_sign_post(bucket, key, opts \\ []) do
+  def presign_post(bucket, key, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
@@ -533,7 +533,7 @@ defmodule CloudCache.Adapters.S3 do
         custom_conditions: conditions
       )
     else
-      sandbox_pre_sign_post_response(bucket, key, opts)
+      sandbox_presign_post_response(bucket, key, opts)
     end
   end
 
@@ -543,9 +543,9 @@ defmodule CloudCache.Adapters.S3 do
 
   ### Examples
 
-      iex> CloudCache.Adapters.S3.pre_sign_part("test-bucket", "test-object", "test-upload-id", 1)
+      iex> CloudCache.Adapters.S3.presign_part("test-bucket", "test-object", "test-upload-id", 1)
   """
-  def pre_sign_part(bucket, object, upload_id, part_number, opts \\ []) do
+  def presign_part(bucket, object, upload_id, part_number, opts \\ []) do
     opts = Keyword.merge(@default_options, opts)
 
     sandbox? = opts[:s3][:sandbox_enabled] === true
@@ -553,9 +553,9 @@ defmodule CloudCache.Adapters.S3 do
     if not sandbox? or sandbox_disabled?() do
       query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
       opts = Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
-      pre_sign(bucket, :put, object, opts)
+      presign(bucket, :put, object, opts)
     else
-      sandbox_pre_sign_part_response(bucket, object, upload_id, part_number, opts)
+      sandbox_presign_part_response(bucket, object, upload_id, part_number, opts)
     end
   end
 
@@ -1284,11 +1284,11 @@ defmodule CloudCache.Adapters.S3 do
                 to: CloudCache.Adapters.S3.Sandbox,
                 as: :copy_object_response
 
-    defdelegate sandbox_pre_sign_response(bucket, http_method, key, opts),
+    defdelegate sandbox_presign_response(bucket, http_method, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
-      as: :pre_sign_response
+      as: :presign_response
 
-    defdelegate sandbox_pre_sign_part_response(
+    defdelegate sandbox_presign_part_response(
                   bucket,
                   key,
                   upload_id,
@@ -1296,11 +1296,11 @@ defmodule CloudCache.Adapters.S3 do
                   opts
                 ),
                 to: CloudCache.Adapters.S3.Sandbox,
-                as: :pre_sign_part_response
+                as: :presign_part_response
 
-    defdelegate sandbox_pre_sign_post_response(bucket, key, opts),
+    defdelegate sandbox_presign_post_response(bucket, key, opts),
       to: CloudCache.Adapters.S3.Sandbox,
-      as: :pre_sign_post_response
+      as: :presign_post_response
 
     defdelegate sandbox_list_parts_response(bucket, key, upload_id, opts),
       to: CloudCache.Adapters.S3.Sandbox,
@@ -1452,7 +1452,7 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_pre_sign_response(bucket, http_method, key, opts) do
+    defp sandbox_presign_response(bucket, http_method, key, opts) do
       raise """
       Cannot use #{inspect(__MODULE__)}.presign/3 outside of test.
 
@@ -1463,9 +1463,9 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_pre_sign_post_response(bucket, key, opts) do
+    defp sandbox_presign_post_response(bucket, key, opts) do
       raise """
-      Cannot use #{inspect(__MODULE__)}.pre_sign_post/3 outside of test.
+      Cannot use #{inspect(__MODULE__)}.presign_post/3 outside of test.
 
       bucket: #{inspect(bucket)}
       key: #{inspect(key)}
@@ -1473,9 +1473,9 @@ defmodule CloudCache.Adapters.S3 do
       """
     end
 
-    defp sandbox_pre_sign_part_response(bucket, key, upload_id, part_number, opts) do
+    defp sandbox_presign_part_response(bucket, key, upload_id, part_number, opts) do
       raise """
-      Cannot use #{inspect(__MODULE__)}.pre_sign_part/5 outside of test.
+      Cannot use #{inspect(__MODULE__)}.presign_part/5 outside of test.
 
       bucket: #{inspect(bucket)}
       key: #{inspect(key)}

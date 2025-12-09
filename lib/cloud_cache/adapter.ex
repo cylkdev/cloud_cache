@@ -9,16 +9,16 @@ defmodule CloudCache.Adapter do
   @type options :: keyword()
   @type http_method :: atom()
 
-  @callback pre_sign(
+  @callback presign(
               bucket :: bucket(),
               http_method :: http_method(),
               object :: object(),
               opts :: options()
             ) :: map()
 
-  @callback pre_sign_post(bucket :: bucket(), object :: object(), opts :: options()) :: map()
+  @callback presign_post(bucket :: bucket(), object :: object(), opts :: options()) :: map()
 
-  @callback pre_sign_part(
+  @callback presign_part(
               bucket :: bucket(),
               object :: object(),
               upload_id :: upload_id(),
@@ -135,12 +135,12 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
-  def pre_sign(adapter, bucket, http_method, object, opts \\ []) do
-    adapter.pre_sign(bucket, http_method, object, opts)
+  def presign(adapter, bucket, http_method, object, opts \\ []) do
+    adapter.presign(bucket, http_method, object, opts)
   end
 
-  def pre_sign_post(adapter, bucket, object, opts \\ []) do
-    adapter.pre_sign_post(bucket, object, opts)
+  def presign_post(adapter, bucket, object, opts \\ []) do
+    adapter.presign_post(bucket, object, opts)
   end
 
   def list_buckets(adapter, opts \\ []) do
@@ -177,8 +177,8 @@ defmodule CloudCache.Adapter do
 
   # Multipart Upload API
 
-  def pre_sign_part(adapter, bucket, object, upload_id, part_number, opts \\ []) do
-    adapter.pre_sign_part(bucket, object, upload_id, part_number, opts)
+  def presign_part(adapter, bucket, object, upload_id, part_number, opts \\ []) do
+    adapter.presign_part(bucket, object, upload_id, part_number, opts)
   end
 
   def upload_part(adapter, bucket, object, upload_id, part_number, body, opts \\ []) do
