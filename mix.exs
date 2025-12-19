@@ -38,22 +38,24 @@ defmodule CloudCache.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {CloudCache.Application, []}
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_aws, "~> 2.0", optional: true},
-      {:ex_aws_s3, "~> 2.0", optional: true},
-      {:sweet_xml, ">= 0.0.0", optional: true},
-      {:proper_case, "~> 1.0", optional: true},
-      {:timex, "~> 3.0", optional: true},
-      {:jason, "~> 1.0", optional: true},
-      {:req, "~> 0.5", optional: true},
-      {:error_message, ">= 0.0.0", optional: true},
-      {:sandbox_registry, ">= 0.0.0", only: :test, runtime: false}
+      {:ex_aws, "~> 2.0"},
+      {:ex_aws_s3, "~> 2.0"},
+      {:configparser_ex, ">= 0.0.0"},
+      {:sweet_xml, ">= 0.0.0"},
+      {:proper_case, "~> 1.0"},
+      {:timex, "~> 3.0"},
+      {:jason, "~> 1.0"},
+      {:req, "~> 0.5"},
+      {:error_message, ">= 0.0.0"},
+      {:sandbox_registry, ">= 0.0.0"}
     ]
   end
 end

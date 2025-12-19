@@ -7,10 +7,37 @@ defmodule CloudCache.Adapter do
   @type content_length :: pos_integer()
   @type body :: term()
   @type options :: keyword()
+  @type http_method :: atom()
 
-  @callback supervisor_children(opts :: options()) :: list()
+  @callback presign(
+              bucket :: bucket(),
+              http_method :: http_method(),
+              object :: object(),
+              opts :: options()
+            ) :: map()
+
+  @callback presign_post(bucket :: bucket(), object :: object(), opts :: options()) :: map()
+
+  @callback presign_part(
+              bucket :: bucket(),
+              object :: object(),
+              upload_id :: upload_id(),
+              part_number :: part_number(),
+              opts :: options()
+            ) :: map()
+
+  @callback list_buckets(opts :: options()) :: {:ok, term()} | {:error, term()}
+
+  @callback create_bucket(bucket :: bucket(), region :: binary(), opts :: options()) ::
+              {:ok, term()} | {:error, term()}
 
   @callback head_object(
+              bucket :: bucket(),
+              object :: object(),
+              opts :: options()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback delete_object(
               bucket :: bucket(),
               object :: object(),
               opts :: options()
@@ -39,20 +66,6 @@ defmodule CloudCache.Adapter do
 
   @callback list_objects(
               bucket :: bucket(),
-              opts :: options()
-            ) :: {:ok, term()} | {:error, term()}
-
-  @callback pre_sign(
-              bucket :: bucket(),
-              object :: object(),
-              opts :: options()
-            ) :: {:ok, term()} | {:error, term()}
-
-  @callback pre_sign_part(
-              bucket :: bucket(),
-              object :: object(),
-              upload_id :: upload_id(),
-              part_number :: part_number(),
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
@@ -122,20 +135,32 @@ defmodule CloudCache.Adapter do
               opts :: options()
             ) :: {:ok, term()} | {:error, term()}
 
-  @optional_callbacks supervisor_children: 1
+  def presign(adapter, bucket, http_method, object, opts \\ []) do
+    adapter.presign(bucket, http_method, object, opts)
+  end
 
-  # Non-Multipart Upload API
+  def presign_post(adapter, bucket, object, opts \\ []) do
+    adapter.presign_post(bucket, object, opts)
+  end
+
+  def list_buckets(adapter, opts \\ []) do
+    adapter.list_buckets(opts)
+  end
+
+  def create_bucket(adapter, bucket, region, opts \\ []) do
+    adapter.create_bucket(bucket, region, opts)
+  end
 
   def head_object(adapter, bucket, object, opts \\ []) do
     adapter.head_object(bucket, object, opts)
   end
 
-  def pre_sign(adapter, bucket, object, opts \\ []) do
-    adapter.pre_sign(bucket, object, opts)
+  def delete_object(adapter, bucket, object, opts \\ []) do
+    adapter.delete_object(bucket, object, opts)
   end
 
-  def get_object(adapter, bucket, object, body, opts \\ []) do
-    adapter.get_object(bucket, object, body, opts)
+  def get_object(adapter, bucket, object, opts \\ []) do
+    adapter.get_object(bucket, object, opts)
   end
 
   def put_object(adapter, bucket, object, body, opts \\ []) do
@@ -152,8 +177,8 @@ defmodule CloudCache.Adapter do
 
   # Multipart Upload API
 
-  def pre_sign_part(adapter, bucket, object, upload_id, part_number, opts \\ []) do
-    adapter.pre_sign_part(bucket, object, upload_id, part_number, opts)
+  def presign_part(adapter, bucket, object, upload_id, part_number, opts \\ []) do
+    adapter.presign_part(bucket, object, upload_id, part_number, opts)
   end
 
   def upload_part(adapter, bucket, object, upload_id, part_number, body, opts \\ []) do
