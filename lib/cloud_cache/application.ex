@@ -22,14 +22,15 @@ defmodule CloudCache.Application do
   end
 
   def children do
-    [
-      {Registry, keys: :duplicate, name: CloudCache.Registry}
-    ] ++ supervisor_children()
+    [{Registry, name: CloudCache.Registry, keys: :duplicate}] ++ caches()
   end
 
-  defp supervisor_children do
+  defp caches do
     if CloudCache.Config.auto_start() do
-      [{CloudCache, CloudCache.Config.caches()}]
+      case CloudCache.Config.caches() do
+        [] -> [{CloudCache, [CloudCache.Adapters.S3]}]
+        caches -> [{CloudCache, caches}]
+      end
     else
       []
     end
